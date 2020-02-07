@@ -72,11 +72,11 @@ def get_SigX(X,k,d):
 		between -1 and 1.
 	'''
 	SigX=np.zeros((np.shape(X)[0],isig.siglength(d,k)))
+	print(SigX.shape)
 	#print("Create signature matrix")
 	for i in range(np.shape(X)[0]):
 		SigX[i,:]=get_signature(X[i,:,:],k)
-	#print("Input matrix size: ",SigX.shape)
-	max_SigX=np.amax(np.absolute(SigX),axis=0)
+	#max_SigX=np.amax(np.absolute(SigX),axis=0)
 	#SigX=SigX/max_SigX
 	return(SigX)
 
@@ -209,12 +209,12 @@ class orderEstimator(object):
 			plt.show()
 		return(np.sum((Y-Ypred)**2)/len(Y))
 
-	def fit_ridge(self,Y,X,k,alpha=1):
+	def fit_ridge(self,Y,X,k,alpha=1,plot=False):
 		reg=Ridge(alpha=alpha,normalize=False)
 		SigX=get_SigX(X,k,self.d)
-		#print("Fit ridge regression")
 		reg.fit(SigX,Y)
-		return(reg)
+		Ypred=reg.predict(SigX)
+		return(reg,Ypred)
 
 
 	def get_hatm(self,Y,X,max_k,Kpen=1,alpha=1,plot=False):

@@ -1,6 +1,28 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import math
+
+
+def get_curve_length(path):
+	'''Computes the length of a picewise linear path
+
+	Parameters
+	----------
+	path: array, shape (n_points,d)
+		The array storing the n_points coordinates in R^d that constitute a 
+		piecewise linear path.
+	
+	Returns
+	-------
+	length: float
+		The length of path.
+	'''
+	length=0
+	for i in range(path.shape[0]-1):
+		length+=math.sqrt(np.sum((path[i+1,:]-path[i,:])**2))
+	return(length)
+
 
 
 def temp_data_to_input_matrices(p=10):
@@ -24,6 +46,7 @@ def canadian_weather():
 	X[:,:,0]=np.transpose(np.array(temp_df))
 	for i in range(len(y)):
 		X[i,:,1]=np.linspace(0,1,num=temp_df.shape[0])
+		#X[i,:,:]=X[i,:,:]/get_curve_length(X[i,:,:])
 	return(X,y)
 
 
