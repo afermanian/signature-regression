@@ -5,30 +5,12 @@ import math
 import iisignature as isig
 from sklearn.linear_model import RidgeCV,Ridge
 from sklearn.linear_model import LassoCV,Lasso
+from sklearn.linear_model import LogisticRegressionCV,LogisticRegression
 
 sns.set()
 
-def get_curve_length(path):
-	'''Computes the length of a picewise linear path
 
-	Parameters
-	----------
-	path: array, shape (n_points,d)
-		The array storing the n_points coordinates in R^d that constitute a 
-		piecewise linear path.
-	
-	Returns
-	-------
-	length: float
-		The length of path.
-	'''
-	length=0
-	for i in range(path.shape[0]-1):
-		length+=math.sqrt(np.sum((path[i+1,:]-path[i,:])**2))
-	return(length)
-
-
-def get_signature(path,order):
+def get_signature(path,order,norm_path=True):
 	''' Returns the signature of a path truncated at a certain order.
 
 	Parameters
@@ -40,17 +22,23 @@ def get_signature(path,order):
 	order: int
 		The truncation order of the signature
 
+	norm_path: boolean, default=True
+		Whether to normalise the path before computing the signature, such that
+		the signature coefficients of order k are of order the length of the 
+		path.
+
 	Returns
 	-------
 	sig: array, shape (p)
 		Array containing the truncated signature coefficients of path. It is of
 		shape p=(d^(order+1)-1)/(d-1)
 	'''
-
+	if norm_path:
+		path=path*(math.factorial(order))**(1/order)
 	return(isig.sig(path,order))
 
 
-def get_SigX(X,k,d):
+def get_SigX(X,k,norm_path=True):
 	'''Returns a matrix containing signatures truncated at k of n samples
 	given in the input tensor X.
 
@@ -63,22 +51,26 @@ def get_SigX(X,k,d):
 	k: int
 		Truncation order of the signature
 
+	norm_path: boolean, default=True
+		Whether to normalise the path before computing the signature, such that
+		the signature coefficients of order k are of order the length of the 
+		path.
+
 	Returns
 	-------
 	SigX: array, shape (n,p)
 		A matrix containing in each row the signature truncated at k of a
-		sample. It is normalized by dividing each column by its absolute
-		value over the n samples, so that every coefficient of SigX is
-		between -1 and 1.
+		sample. 
 	'''
-	SigX=np.zeros((np.shape(X)[0],isig.siglength(d,k)))
-	print(SigX.shape)
-	#print("Create signature matrix")
-	for i in range(np.shape(X)[0]):
-		SigX[i,:]=get_signature(X[i,:,:],k)
-	#max_SigX=np.amax(np.absolute(SigX),axis=0)
-	#SigX=SigX/max_SigX
-	return(SigX)
+	if k==0:
+		return(np.full((np.shape(X)[0],1),1))
+	else:
+		d=X.shape[2]
+		SigX=np.zeros((np.shape(X)[0],isig.siglength(d,k)+1))
+		SigX[:,0]=1
+		for i in range(np.shape(X)[0]):
+			SigX[i,1:]=get_signature(X[i,:,:],k,norm_path=norm_path)
+		return(SigX)
 
 class orderEstimator(object):
 	''' Object that implements the estimation of the truncation order.
@@ -119,7 +111,12 @@ class orderEstimator(object):
 		pen_n(k):float
 			The penalization pen_n(k)
 		'''
-		return(Kpen*n**(-self.rho)*math.sqrt(isig.siglength(self.d,k)))
+		if k==0:
+			size_sig=1
+		else:
+			size_sig=isig.siglength(self.d,k)+1
+
+		return(Kpen*n**(-self.rho)*math.sqrt(size_sig))
 
 
 	def get_alpha_ridgeCV(
@@ -151,17 +148,55 @@ class orderEstimator(object):
 		alpha: float
 			The best regularization parameter among alphas.
 		'''
-		reg=RidgeCV(alphas=alphas,store_cv_values=True)
-		SigX=get_SigX(X,k,self.d)
+		
+		reg=RidgeCV(alphas=alphas,store_cv_values=True,fit_intercept=False)
+		SigX=get_SigX(X,k)
+
 		reg.fit(SigX,Y)
-		print("alpha ridge cv: ",reg.alpha_)
 		if plot:
 			plt.plot(alphas,np.mean(reg.cv_values_,axis=0))
 			plt.show()
 		return(reg.alpha_)
 
+	def fit_ridge(self,Y,X,k,alpha=1,norm_path=True):
+		'''Fit a signature ridge regression.
 
-	def get_hatL(self,Y,X,k,alpha=1,plot=False):
+		Parameters
+		----------
+		Y: array, shape (n)
+			Array of target values.
+
+		X: array, shape (n,n_points,d)
+			Array of training paths. It is a 3-dimensional array, containing
+			the coordinates in R^d of n piecewise linear paths, each composed of
+			n_points.
+
+		k: int
+			Truncation order of the signature
+
+		alpha: float, default=1
+			Regularization parameter in the Ridge regression.
+
+		norm_path:boolean, default=True
+			Whether to normalize the path by (k!)^(1/k) before computing 
+			signatures
+
+		Returns
+		-------
+		reg: object
+			Instance of sklearn.linear_model.Ridge
+
+		Ypred: array, shape (n)
+			Array of predicted values.
+		'''
+
+		reg=Ridge(alpha=alpha,normalize=False,fit_intercept=False,solver='svd')
+		SigX=get_SigX(X,k,norm_path=norm_path)
+		reg.fit(SigX,Y)
+		Ypred=reg.predict(SigX)
+		return(reg,Ypred)
+
+	def get_hatL(self,Y,X,k,alpha=1,norm_path=True,plot=False):
 		'''Computes the minimum empirical squared loss obtained with a Ridge
 		regression on signatures truncated at k.
 
@@ -181,6 +216,10 @@ class orderEstimator(object):
 		alpha: float, default=1
 			Regularization parameter in the Ridge regression.
 
+		norm_path:boolean, default=True
+			Whether to normalize the path by (k!)^(1/k) before computing 
+			signatures
+
 		plot: boolean, default=False
 			If True, plots the regression coefficients and a scatter plot of the
 			target values Y against its predicted values Ypred to assess the
@@ -194,12 +233,8 @@ class orderEstimator(object):
 			Ypred are the fitted values of the Ridge regression of Y against
 			signatures of X truncated at k.
 		'''
-		reg=Ridge(alpha=alpha,normalize=False)
-		SigX=get_SigX(X,k,self.d)
-		#print("Fit ridge regression")
-		reg.fit(SigX,Y)
-		#print("End fitting")
-		Ypred=reg.predict(SigX)
+		
+		reg,Ypred=self_fit_ridge(Y,X,k,alpha=alpha,norm_path=norm_path)
 		if plot:
 			plt.plot(reg.coef_)
 			plt.title("Regression coefficients")
@@ -209,12 +244,36 @@ class orderEstimator(object):
 			plt.show()
 		return(np.sum((Y-Ypred)**2)/len(Y))
 
-	def fit_ridge(self,Y,X,k,alpha=1,plot=False):
-		reg=Ridge(alpha=alpha,normalize=False)
-		SigX=get_SigX(X,k,self.d)
-		reg.fit(SigX,Y)
+
+	def predict_ridge(self,reg,X,k,norm_path=True):
+		'''Outputs prediction of a reg object, already trained with signatures 
+		truncated at order k.
+
+		Parameters
+		----------
+		reg: object
+			Instance of sklearn.linear_model.Ridge
+
+		X: array, shape (n,n_points,d)
+			Array of training paths. It is a 3-dimensional array, containing
+			the coordinates in R^d of n piecewise linear paths, each composed of
+			n_points.
+
+		k: int
+			Truncation order of the signature
+
+		norm_path:boolean, default=True
+			Whether to normalize the path by (k!)^(1/k) before computing 
+			signatures
+
+		Returns
+		-------
+		Ypred: array, shape (n)
+			Array of predicted values.
+		'''
+		SigX=get_SigX(X,k,norm_path=norm_path)
 		Ypred=reg.predict(SigX)
-		return(reg,Ypred)
+		return(Ypred)
 
 
 	def get_hatm(self,Y,X,max_k,Kpen=1,alpha=1,plot=False):
@@ -255,19 +314,19 @@ class orderEstimator(object):
 		objective: array, shape (max_k)
 			The array of values of the objective function, minimized at hatm.
 		'''
-		objective=np.zeros(max_k)
-		loss=np.zeros(max_k)
-		pen=np.zeros(max_k)
-		for i in range(max_k):
-			loss[i]=self.get_hatL(Y,X,i+1,alpha=alpha)
-			pen[i]=self.get_penalization(Y.shape[0],i+1,Kpen=Kpen)
+		objective=np.zeros(max_k+1)
+		loss=np.zeros(max_k+1)
+		pen=np.zeros(max_k+1)
+		for i in range(max_k+1):
+			loss[i]=self.get_hatL(Y,X,i,alpha=alpha,norm_path=False)
+			pen[i]=self.get_penalization(Y.shape[0],i,Kpen=Kpen)
 			objective[i]=loss[i]+pen[i]
-		hatm=np.argmin(objective)+1
+		hatm=np.argmin(objective)
 
 		if plot:
-			plt.plot(np.arange(max_k)+1,loss,label="loss")
-			plt.plot(np.arange(max_k)+1,pen,label="penalization")
-			plt.plot(np.arange(max_k)+1,objective,label="sum")
+			plt.plot(np.arange(max_k+1),loss,label="loss")
+			plt.plot(np.arange(max_k+1),pen,label="penalization")
+			plt.plot(np.arange(max_k+1),objective,label="sum")
 			plt.legend()
 			plt.show()
 		return(hatm,objective)
@@ -307,16 +366,16 @@ class orderEstimator(object):
 			The estimator hatm obtained for each value of Kpen in Kpen_values.
 		'''
 		hatm=np.zeros(len(Kpen_values))
-		loss=np.zeros(max_k)
-		for j in range(max_k):
-			loss[j]=self.get_hatL(Y,X,j+1,alpha=alpha)
+		loss=np.zeros(max_k+1)
+		for j in range(max_k+1):
+			loss[j]=self.get_hatL(Y,X,j,alpha=alpha,norm_path=False)
 
 		for i in range(len(Kpen_values)):
 			#print(i)
-			pen=np.zeros(max_k)
-			for j in range(max_k):
-				pen[j]=self.get_penalization(Y.shape[0],j+1,Kpen=Kpen_values[i])
-			hatm[i]=np.argmin(loss+pen)+1
+			pen=np.zeros(max_k+1)
+			for j in range(max_k+1):
+				pen[j]=self.get_penalization(Y.shape[0],j,Kpen=Kpen_values[i])
+			hatm[i]=np.argmin(loss+pen)
 			#print("Hatm selected: ",hatm[i])
 
 		print(hatm)
@@ -325,12 +384,12 @@ class orderEstimator(object):
 		# Plot
 		fig, ax = plt.subplots()
 		jump=1
-		for i in range(1,max_k+1):
+		for i in range(max_k+1):
 			if i in hatm:
 				xmin=Kpen_values[hatm==i][0]
 				xmax=Kpen_values[hatm==i][-1]
 				ax.hlines(i,xmin,xmax,colors='b')
-				if i!=1:
+				if i!=0:
 					ax.vlines(xmax,i,i-jump,linestyles='dashed',colors='b')
 				jump=1
 			else:
@@ -349,19 +408,33 @@ class dataSimu(object):
 	n_points: int
 		Number of points in the piecewise linear approximations.
 
-	n: int
-		Number of samples to simulate.
-
 	d: int
 		Dimension of the output space of the training paths.
+
+	mast: int
+		True value of the truncation order of the signature.
+
+	Attributes
+	----------
+	size_sig:int
+		Size of the signature truncated at mast.
+
+	beta: array, shape (size_sig)
+		True array of regression coefficients, sampled uniformly on [0,100].
+
+
 	'''
 	def __init__(self,n_points,d,mast):
 		self.n_points=n_points
 		self.d=d
 		self.mast=mast
-		size_sig=isig.siglength(self.d,self.mast)
-		self.beta=np.exp(np.arange(size_sig)/size_sig)*np.random.random(
-			size=size_sig)
+		if mast==0:
+			self.size_sig=1
+		else:
+			self.size_sig=isig.siglength(self.d,self.mast)+1
+		# self.beta=np.exp(np.arange(size_sig)/size_sig)*np.random.random(
+		# 	size=size_sig)
+		self.beta=100*np.random.random(size=self.size_sig)
 
 
 	def get_X(self,n):
@@ -370,6 +443,11 @@ class dataSimu(object):
 		where the alphas are sampled uniformly over [0,1].X is interpolated by 
 		a piecewise linear function with n_points. Each sample X is normalized
 		so that it has length 1.
+
+		Parameters
+		----------
+		n: int
+			Number of samples to simulate.
 
 		Returns
 		-------
@@ -387,10 +465,7 @@ class dataSimu(object):
 				X[i,:,j]=param[0]+ 10*param[1]*np.sin(
 					times*np.pi*2/param[2])+ 10*(times-param[3])**3
 			X[i,:,self.d-1]=times
-			Xlength[i,:,:]=np.full((self.n_points,self.d),get_curve_length(X[i,:,:]))
-		#plt.plot(X[0,:,:])
-		#plt.show()
-		return(X/Xlength)
+		return(X)
 
 	def get_Y_sig(self,X,noise_std,plot=False):
 		'''Compute the target values Y as scalar products of the truncated
@@ -420,17 +495,15 @@ class dataSimu(object):
 		n=X.shape[0]
 		Y=np.zeros(n)
 		noise=np.random.normal(scale=noise_std,size=n)
-		size_sig=isig.siglength(self.d,self.mast)
 
-		SigX=get_SigX(X,self.mast,self.d)
+		SigX=get_SigX(X,self.mast)
 		#beta=beta/math.sqrt(np.sum(beta**2))
-
-		beta_repeated=np.repeat(self.beta.reshape(1,size_sig),n,axis=0)
+		beta_repeated=np.repeat(self.beta.reshape(1,self.size_sig),n,axis=0)
 
 		#Y=np.sum(X[:,:,0],axis=1)
 		#Y=Y/math.sqrt(np.sum(Y**2))
 		#print(np.shape(Y))
-		Y=1000*np.sum(beta_repeated*SigX,axis=1)
+		Y=np.sum(beta_repeated*SigX,axis=1)/1000
 		if plot:
 			plt.plot(SigX[0,:],label="Signature coefficients")
 			plt.plot(SigX[1,:],label="Signature coefficients")
@@ -445,15 +518,15 @@ class dataSimu(object):
 			plt.show()
 		return(Y+noise)
 
-	def get_Y_nonlinear(self,X,noise_std):
-		n=X.shape[0]
-		Y=np.zeros(n)
-		for i in range(n):
-			Y[i]+=np.mean(np.prod(X[i,:,:],axis=1))*10000
-		noise=np.random.normal(scale=noise_std,size=n)
-		#plt.scatter(Y,Y+noise)
-		#plt.show()
-		return(Y+noise)
+	# def get_Y_nonlinear(self,X,noise_std):
+	# 	n=X.shape[0]
+	# 	Y=np.zeros(n)
+	# 	for i in range(n):
+	# 		Y[i]+=np.mean(np.prod(X[i,:,:],axis=1))*10000
+	# 	noise=np.random.normal(scale=noise_std,size=n)
+	# 	#plt.scatter(Y,Y+noise)
+	# 	#plt.show()
+	# 	return(Y+noise)
 
 
 
