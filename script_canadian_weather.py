@@ -38,7 +38,8 @@ print("alpha: ",alpha)
 # Choose Kpen
 K_values=np.linspace(10**(-8),2*10**(-1),num=200)
 hatm_values=est.slope_heuristic(K_values,X,Y,max_k,alpha)
-Kpen=0.006
+Kpen = float(input("Enter slope heuristic constant Kpen: "))
+#Kpen=0.006
 
 # Estimate hatm		
 hatm=est.get_hatm(Y,X,max_k,Kpen=Kpen,alpha=alpha,plot=True)[0]

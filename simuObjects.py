@@ -4,8 +4,6 @@ import seaborn as sns
 import math
 import iisignature as isig
 from sklearn.linear_model import RidgeCV,Ridge
-from sklearn.linear_model import LassoCV,Lasso
-from sklearn.linear_model import LogisticRegressionCV,LogisticRegression
 
 sns.set()
 
@@ -149,12 +147,14 @@ class orderEstimator(object):
 			The best regularization parameter among alphas.
 		'''
 		
-		reg=RidgeCV(alphas=alphas,store_cv_values=True,fit_intercept=False)
+		reg=RidgeCV(alphas=alphas,store_cv_values=True,fit_intercept=False,
+			gcv_mode='svd')
 		SigX=get_SigX(X,k)
 
 		reg.fit(SigX,Y)
 		if plot:
-			plt.plot(alphas,np.mean(reg.cv_values_,axis=0))
+			print(alphas.shape,reg.cv_values_.shape)
+			plt.plot(alphas,np.mean(reg.cv_values_,axis=0)[0,:])
 			plt.show()
 		return(reg.alpha_)
 
@@ -234,7 +234,7 @@ class orderEstimator(object):
 			signatures of X truncated at k.
 		'''
 		
-		reg,Ypred=self_fit_ridge(Y,X,k,alpha=alpha,norm_path=norm_path)
+		reg,Ypred=self.fit_ridge(Y,X,k,alpha=alpha,norm_path=norm_path)
 		if plot:
 			plt.plot(reg.coef_)
 			plt.title("Regression coefficients")
@@ -378,8 +378,6 @@ class orderEstimator(object):
 			hatm[i]=np.argmin(loss+pen)
 			#print("Hatm selected: ",hatm[i])
 
-		print(hatm)
-		print(Kpen_values)
 
 		# Plot
 		fig, ax = plt.subplots()

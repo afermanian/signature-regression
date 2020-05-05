@@ -1,7 +1,6 @@
 from simuObjects import dataSimu, orderEstimator
 import numpy as np
 import matplotlib.pyplot as plt
-from read_data import temp_data_to_input_matrices 
 import seaborn as sns
 import pandas as pd
 import time
@@ -10,73 +9,69 @@ import os
 sns.set()
 
 # Get simulation data
-
 d=2
 nb_points=200
 mast=5
 
-max_k=7
+max_k=9
 rho=0.4
 
-Y_noise_std=10
+Y_noise_std=1000
 
 est=orderEstimator(d,rho=rho)
 
 # Data for selection of alpha and Kpen
 sim=dataSimu(nb_points,d,mast)
 X=sim.get_X(1000)
-#plt.plot(np.transpose(X[:10,:,0]))
-#plt.show()
-Y=sim.get_Y_sig(X,Y_noise_std,plot=True)
-alpha=est.get_alpha_ridgeCV(Y,X,1,alphas=np.linspace(10**(-9),10**(-1),num=1000))
+Y=sim.get_Y_sig(X,Y_noise_std,plot=False)
 
+plt.plot(np.transpose(X[:10,:,0]))
+plt.show()
+
+# Select alpha by cross validation with signatures truncated at order 1.
+alpha=est.get_alpha_ridgeCV(Y,X,1,alphas=np.linspace(10**(-1),10**(4),num=1000))
+print("alpha selected : ",alpha)
 
 # Choose Kpen
-#K_values=np.linspace(10**(-5),5*10**(2),num=500)
-#hatm_values=est.slope_heuristic(K_values,X,Y,max_k,alpha)
+K_values=np.linspace(10**(-1),5*10**(5),num=500)
+hatm_values=est.slope_heuristic(K_values,X,Y,max_k,alpha)
+Kpen = float(input("Enter slope heuristic constant Kpen: "))
 
-Kpen=1
-#hatm,loss=est.get_hatm(Y,X,max_k,Kpen=Kpen,alpha=alpha)
-#print("hatm : ",hatm)
-
-
-# Value obtained for mast=3, 5000 data points : Kpen=80
-
-
-n_grid=[10,50,100,500,1000,5000,10000]
-print(n_grid)
-nb_iterations=100
+n_grid=[10,50,100,500,1000,5000,10000,50000]
+nb_iterations=1
 hatm_values=np.zeros(len(n_grid)*nb_iterations)
 n_values=np.zeros(len(n_grid)*nb_iterations)
 pred_error=np.zeros(len(n_grid)*nb_iterations)
 
 for i in range(len(n_grid)):
 	print("n=",n_grid[i])
-	n_values[i*nb_iterations:(i+1)*nb_iterations]=np.repeat(n_grid[i],nb_iterations)
+	n_values[i*nb_iterations:(i+1)*nb_iterations]=np.repeat(
+		n_grid[i],nb_iterations)
 	for j in range(nb_iterations):
 		print("Iteration nb : ",j)
 		X=sim.get_X(n_grid[i])
 		Y=sim.get_Y_sig(X,Y_noise_std)
 
-		#if i==0 and j==0:
-		#	alpha=est.get_alpha_ridgeCV(Y,X,1)
-		#	print("alpha: ",alpha)
-
-		hatm=est.get_hatm(Y,X,max_k,Kpen=Kpen,alpha=alpha)[0]
+		hatm=est.get_hatm(Y,X,max_k,Kpen=Kpen,alpha=alpha,plot=False)[0]
 		
 		hatm_values[i*nb_iterations+j]=hatm
 		print('hatm is : ',hatm_values[i*nb_iterations+j])
 
 		X_pred=sim.get_X(n_grid[i])
-		Y_pred=sim.get_Y_sig(X,Y_noise_std)
+		Y_pred=sim.get_Y_sig(X_pred,Y_noise_std)
 
-		pred_error[i*nb_iterations+j]=est.get_hatL(Y,X,hatm,alpha=alpha)/n_grid[i]
+		reg=est.fit_ridge(Y,X,hatm,alpha=alpha,norm_path=False)[0]
+		Y_pred_hat=est.predict_ridge(reg,X_pred,hatm)
+
+		pred_error[i*nb_iterations+j]=np.sum((Y_pred-Y_pred_hat)**2)/len(Y_pred)
 
 
 file_name="%s_cvg_hatm" % (time.strftime("%m%d-%H%M%S"))
 
 
-df=pd.DataFrame({'n':n_values.astype(int),r"Value of $\hat{m}$":hatm_values.astype(int),'pred_error':pred_error})
+df=pd.DataFrame(
+	{'n':n_values.astype(int),r"Value of $\hat{m}$":hatm_values.astype(int),
+	'pred_error':pred_error})
 print(df)
 df.to_csv(os.path.join('results',file_name+'.csv'))
 
