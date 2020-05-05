@@ -38,7 +38,7 @@ hatm_values=est.slope_heuristic(K_values,X,Y,max_k,alpha)
 Kpen = float(input("Enter slope heuristic constant Kpen: "))
 
 n_grid=[10,50,100,500,1000,5000,10000,50000]
-nb_iterations=1
+nb_iterations=100
 hatm_values=np.zeros(len(n_grid)*nb_iterations)
 n_values=np.zeros(len(n_grid)*nb_iterations)
 pred_error=np.zeros(len(n_grid)*nb_iterations)
