@@ -37,7 +37,7 @@ K_values=np.linspace(10**(-1),5*10**(5),num=500)
 hatm_values=est.slope_heuristic(K_values,X,Y,max_k,alpha)
 Kpen = float(input("Enter slope heuristic constant Kpen: "))
 
-n_grid=[10,50,100,500,1000,5000,10000,50000]
+n_grid=[10,50,100,500,1000,2000,5000]
 nb_iterations=100
 hatm_values=np.zeros(len(n_grid)*nb_iterations)
 n_values=np.zeros(len(n_grid)*nb_iterations)
@@ -51,7 +51,8 @@ for i in range(len(n_grid)):
 		print("Iteration nb : ",j)
 		X=sim.get_X(n_grid[i])
 		Y=sim.get_Y_sig(X,Y_noise_std)
-
+		
+		print("get hatm")
 		hatm=est.get_hatm(Y,X,max_k,Kpen=Kpen,alpha=alpha,plot=False)[0]
 		
 		hatm_values[i*nb_iterations+j]=hatm
