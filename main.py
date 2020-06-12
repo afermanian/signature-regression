@@ -376,7 +376,6 @@ class orderEstimator(object):
 			for j in range(max_k+1):
 				pen[j]=self.get_penalization(Y.shape[0],j,Kpen=Kpen_values[i])
 			hatm[i]=np.argmin(loss+pen)
-			#print("Hatm selected: ",hatm[i])
 
 
 		# Plot
@@ -510,29 +509,8 @@ class dataSimu(object):
 			plt.show()
 		return(Y+noise)
 
-	def get_Y_interaction(self,X,noise_std,plot=False):
-		n=X.shape[0]
-		Y=np.zeros(n)
-		noise=np.random.normal(scale=noise_std,size=n)
-		#Y=np.sum(X[:,:,0]*np.exp(-X[:,:,0]**2),axis=1)
-		Y=np.mean(X[:,:,0]*X[:,:,1],axis=1)
-		print(Y.shape)
-		print(noise.shape)
-		if plot:
-			plt.scatter(Y,Y+noise)
-			plt.title("Y against Y+noise")
-			plt.show()
-		return(Y+noise)
 
-	#def get_Y_nonlinear(self,X,noise_std):
-	# 	n=X.shape[0]
-	# 	Y=np.zeros(n)
-	# 	for i in range(n):
-	# 		Y[i]+=np.mean(np.prod(X[i,:,:],axis=1))*10000
-	# 	noise=np.random.normal(scale=noise_std,size=n)
-	# 	#plt.scatter(Y,Y+noise)
-	# 	#plt.show()
-	# 	return(Y+noise)
+
 
 
 

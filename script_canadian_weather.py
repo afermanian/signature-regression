@@ -1,5 +1,5 @@
 from read_data import canadian_weather
-from simuObjects import orderEstimator
+from main import orderEstimator
 from plot_tensor_heatmap import plot_tensor_heatmap
 import numpy as np
 import matplotlib.pyplot as plt
@@ -39,7 +39,6 @@ print("alpha: ",alpha)
 K_values=np.linspace(10**(-8),2*10**(-1),num=200)
 hatm_values=est.slope_heuristic(K_values,X,Y,max_k,alpha)
 Kpen = float(input("Enter slope heuristic constant Kpen: "))
-#Kpen=0.006
 
 # Estimate hatm		
 hatm=est.get_hatm(Y,X,max_k,Kpen=Kpen,alpha=alpha,plot=True)[0]

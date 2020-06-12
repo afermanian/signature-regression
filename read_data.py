@@ -5,8 +5,6 @@ import math
 from sktime.utils.load_data import load_from_arff_to_dataframe
 
 
-#DATA_DIR='/volumes/fermanian_disk/Data/Multivariate_arff'
-
 
 def canadian_weather():
 	''' Loads Canadian Weather dataset and formats it into a prediction matricx 

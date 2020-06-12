@@ -1,4 +1,4 @@
-from simuObjects import dataSimu, orderEstimator
+from main import dataSimu, orderEstimator
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -8,22 +8,21 @@ import os
 
 sns.set()
 
-# Get simulation data
+# Hyperparameters
 d=2
 nb_points=200
 mast=5
-
 max_k=9
 rho=0.4
-
 Y_noise_std=1000
 
 est=orderEstimator(d,rho=rho)
 
-# Data for selection of alpha and Kpen
+# Get data for the selection of alpha and Kpen
 sim=dataSimu(nb_points,d,mast)
 X=sim.get_X(1000)
 Y=sim.get_Y_sig(X,Y_noise_std,plot=False)
+print(Y)
 
 plt.plot(np.transpose(X[:10,:,0]))
 plt.show()
@@ -63,7 +62,6 @@ for i in range(len(n_grid)):
 
 		reg=est.fit_ridge(Y,X,hatm,alpha=alpha,norm_path=False)[0]
 		Y_pred_hat=est.predict_ridge(reg,X_pred,hatm)
-
 		pred_error[i*nb_iterations+j]=np.sum((Y_pred-Y_pred_hat)**2)/len(Y_pred)
 
 
@@ -94,26 +92,4 @@ plt.xlabel(r"Sample size $n$")
 plt.savefig(os.path.join('results',file_name+'_hist_hatm'+'.png'))
 plt.show()
 
-# fig, ax = plt.subplots()    
-# sns.stripplot(df.n, df.hatm, jitter=0.1, size=8, ax=ax, linewidth=.5)
-# plt.xticks(np.arange(len(n_grid)),n_grid)
-# plt.yticks(np.arange(0,max_k+1),np.arange(0,max_k+1))
-# plt.xlabel("Sample size n")
-# plt.ylabel(r"Estimator $\hat{m}$")
-# plt.show()
 
-sns.boxplot(x=df.n,y=df[r"Value of $\hat{m}$"])
-plt.xticks(np.arange(len(n_grid)),n_grid)
-plt.yticks(np.arange(0,max_k+1),np.arange(0,max_k+1))
-plt.xlabel("Sample size n")
-plt.ylabel(r"Estimator $\hat{m}$")
-plt.savefig(os.path.join('results',file_name+'_boxplot_hatm'+'.png'))
-plt.show()
-
-
-sns.boxplot(x=df.n,y=df.pred_error)
-plt.xticks(np.arange(len(n_grid)),n_grid)
-plt.xlabel("Sample size n")
-plt.ylabel(r"Prediction error")
-plt.savefig(os.path.join('results',file_name+'_boxplot_pred_errror'+'.png'))
-plt.show()
