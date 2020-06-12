@@ -1,9 +1,0 @@
-d: 2 
-nb_points: 200 
-mast: 5 
-max_k:9 
-rho: 0.4 
-Y_noise_std: 1000 
-alpha: 10.10990990990991 
-Kpen: 500000.0 
-nb_iterations: 100 
