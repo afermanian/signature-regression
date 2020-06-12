@@ -18,7 +18,7 @@ hatm=est.get_hatm(Y,X,M,Kpen=Kpen,alpha=alpha)[0]
 reg,Ypred=est.fit_ridge(Y,X,hatm,alpha=alpha,norm_path=False)
 ```
 
-where alpha is the regularization parameter, Kpen is the constant in the penalization of the truncation order and M is the range of truncation orders considered. If you wish to calibrate Kpen with the slope heuristics method, the command
+where alpha is the regularization parameter, Kpen is the constant in the penalization of the truncation order estimator and M is the range of truncation orders considered. If you wish to calibrate Kpen with the slope heuristics method, the command
 
 ```python
 K_values=np.linspace(10**(-7),10**1,num=200)
@@ -48,7 +48,7 @@ There are 3 scripts that reproduce the various experiments of the paper.
 
 * Run `python script_cvg_hatm_Y_sig.py` to get the results on simulated datasets. Beware that this script may take a while to run. Its results are stored in `results/`, together with the corresponding plots.
 * Run `python script_canadian_weather.py` to get the results on the Canadian Weather dataset. You will be asked to enter the constant of the penalization chosen by the slope heuristics method.
-* Run `python script_ucr.py <name>` where `<name>` should be the name of one of the UCR & UEA datasets.
+* Run `python script_ucr.py <name>` where `<name>` should be the name of one of the UCR & UEA datasets to reproduce the results on these datasets.
 
 ## Citation
 
