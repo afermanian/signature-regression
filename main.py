@@ -419,8 +419,6 @@ class dataSimu(object):
 
 	beta: array, shape (size_sig)
 		True array of regression coefficients, sampled uniformly on [0,100].
-
-
 	'''
 	def __init__(self,n_points,d,mast):
 		self.n_points=n_points
@@ -495,13 +493,9 @@ class dataSimu(object):
 		noise=np.random.normal(scale=noise_std,size=n)
 
 		SigX=get_SigX(X,self.mast)
-		#beta=beta/math.sqrt(np.sum(beta**2))
 		beta_repeated=np.repeat(self.beta.reshape(1,self.size_sig),n,axis=0)
-
-		#Y=np.sum(X[:,:,0],axis=1)
-		#Y=Y/math.sqrt(np.sum(Y**2))
-		#print(np.shape(Y))
 		Y=np.sum(beta_repeated*SigX,axis=1)/1000
+
 		if plot:
 			plt.plot(SigX[0,:],label="Signature coefficients")
 			plt.plot(SigX[1,:],label="Signature coefficients")
@@ -516,7 +510,21 @@ class dataSimu(object):
 			plt.show()
 		return(Y+noise)
 
-	# def get_Y_nonlinear(self,X,noise_std):
+	def get_Y_interaction(self,X,noise_std,plot=False):
+		n=X.shape[0]
+		Y=np.zeros(n)
+		noise=np.random.normal(scale=noise_std,size=n)
+		#Y=np.sum(X[:,:,0]*np.exp(-X[:,:,0]**2),axis=1)
+		Y=np.mean(X[:,:,0]*X[:,:,1],axis=1)
+		print(Y.shape)
+		print(noise.shape)
+		if plot:
+			plt.scatter(Y,Y+noise)
+			plt.title("Y against Y+noise")
+			plt.show()
+		return(Y+noise)
+
+	#def get_Y_nonlinear(self,X,noise_std):
 	# 	n=X.shape[0]
 	# 	Y=np.zeros(n)
 	# 	for i in range(n):
