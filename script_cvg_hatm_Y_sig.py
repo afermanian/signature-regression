@@ -12,27 +12,28 @@ sns.set()
 d=2
 nb_points=200
 mast=5
-max_k=9
+max_k=8
 rho=0.4
-Y_noise_std=1000
+Y_noise_std=100
 
 est=orderEstimator(d,rho=rho)
 
 # Get data for the selection of alpha and Kpen
 sim=dataSimu(nb_points,d,mast)
-X=sim.get_X(1000)
-Y=sim.get_Y_sig(X,Y_noise_std,plot=False)
+X=sim.get_X(100)
+Y=sim.get_Y_sig(X,Y_noise_std,plot=True)
 print(Y)
 
-plt.plot(np.transpose(X[:10,:,0]))
-plt.show()
+# Plot some samples
+#plt.plot(np.transpose(X[:10,:,0]))
+#plt.show()
 
 # Select alpha by cross validation with signatures truncated at order 1.
 alpha=est.get_alpha_ridgeCV(Y,X,1,alphas=np.linspace(10**(-1),10**(4),num=1000))
 print("alpha selected : ",alpha)
 
 # Choose Kpen
-K_values=np.linspace(10**(-1),5*10**(5),num=500)
+K_values=np.linspace(10**(2),5*10**(5),num=500)
 hatm_values=est.slope_heuristic(K_values,X,Y,max_k,alpha)
 Kpen = float(input("Enter slope heuristic constant Kpen: "))
 

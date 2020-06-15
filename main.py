@@ -429,7 +429,7 @@ class dataSimu(object):
 			self.size_sig=isig.siglength(self.d,self.mast)+1
 		# self.beta=np.exp(np.arange(size_sig)/size_sig)*np.random.random(
 		# 	size=size_sig)
-		self.beta=100*np.random.random(size=self.size_sig)
+		self.beta=np.random.random(size=self.size_sig)/1000
 
 
 	def get_X(self,n):
@@ -475,7 +475,9 @@ class dataSimu(object):
 			n_points.
 
 		noise_std: float
-			Standard error of the Gaussian noise.
+			Amount of noise of Y, Y is equal to the scalar product of the 
+			signature of X against beta plus a uniform noise on 
+			[-noise_std,noise_std].
 
 		plot: boolean, default=False
 			If True, output two plots: one plot with the signature coefficients
@@ -489,21 +491,13 @@ class dataSimu(object):
 		'''
 		n=X.shape[0]
 		Y=np.zeros(n)
-		noise=np.random.normal(scale=noise_std,size=n)
+		noise=2*noise_std*np.random.random(size=n)-noise_std
 
 		SigX=get_SigX(X,self.mast)
 		beta_repeated=np.repeat(self.beta.reshape(1,self.size_sig),n,axis=0)
-		Y=np.sum(beta_repeated*SigX,axis=1)/1000
+		Y=np.sum(beta_repeated*SigX,axis=1)
 
 		if plot:
-			plt.plot(SigX[0,:],label="Signature coefficients")
-			plt.plot(SigX[1,:],label="Signature coefficients")
-			plt.plot(self.beta,label="beta")
-			plt.title("SigX and beta")
-			plt.legend()
-			plt.show()
-			plt.plot(SigX[0,:]*self.beta,label="product")
-			plt.show()
 			plt.scatter(Y,Y+noise)
 			plt.title("Y against Y+noise")
 			plt.show()
