@@ -52,11 +52,12 @@ There are 3 scripts that reproduce the various experiments of the paper.
 
 ## Citation
 
+```bibtex
 @article{fermanian2020linear,
   title={Linear functional regression with truncated signatures},
   author={Fermanian, Adeline},
   journal={arXiv:2006.08442},
   year={2020}
 }
-
+```
 
