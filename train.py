@@ -8,6 +8,7 @@ import seaborn as sns
 from skfda.representation.basis import VectorValued, BSpline
 from skfda.representation.grid import FDataGrid
 from skfda.ml.regression import LinearRegression
+from sklearn.model_selection import KFold
 
 sns.set()
 
@@ -29,12 +30,12 @@ class SignatureRegression(object):
         signatures
     """
 
-    def __init__(self, d, k, normalize_path=False, alpha = 1):
+    def __init__(self, d, k, normalize_path=False, alpha=None):
         self.d = d
-        self.alpha = alpha
         self.normalize_path = normalize_path
-        self.reg = Ridge(alpha=self.alpha, normalize=False, fit_intercept=False, solver='svd')
+        self.reg = Ridge(normalize=False, fit_intercept=False, solver='svd')
         self.k = k
+        self.alpha = alpha
 
     def fit_alpha(self, X, Y, plot=False, alphas=np.linspace(10 ** (-6), 100, num=1000)):
         """Gets the best regularization parameter for a Ridge regression on
@@ -61,19 +62,21 @@ class SignatureRegression(object):
         alpha: float
             The best regularization parameter among alphas.
         """
-
-        reg_cv = RidgeCV(alphas=alphas, store_cv_values=True, fit_intercept=False,
+        if self.alpha is not None:
+            self.reg.alpha_ = self.alpha
+        else:
+            reg_cv = RidgeCV(alphas=alphas, store_cv_values=True, fit_intercept=False,
                       gcv_mode='svd')
-        sigX = get_sigX(X, self.k)
+            sigX = get_sigX(X, self.k)
 
-        reg_cv.fit(sigX, Y)
-        if plot:
-            print(alphas.shape, reg_cv.cv_values_.shape)
-            plt.plot(alphas, np.mean(reg_cv.cv_values_, axis=0)[0, :])
-            plt.show()
+            reg_cv.fit(sigX, Y)
+            if plot:
+                print(alphas.shape, reg_cv.cv_values_.shape)
+                plt.plot(alphas, np.mean(reg_cv.cv_values_, axis=0)[0, :])
+                plt.show()
 
-        self.alpha = reg_cv.alpha_
-        self.reg.alpha_ = self.alpha
+            self.alpha = reg_cv.alpha_
+            self.reg.alpha_ = self.alpha
         return self.alpha
 
     def fit(self, X, Y):
@@ -100,7 +103,7 @@ class SignatureRegression(object):
         Ypred: array, shape (n)
             Array of predicted values.
         """
-
+        self.fit_alpha(X, Y)
         sigX = get_sigX(X, self.k, norm_path=self.normalize_path)
         self.reg.fit(sigX, Y)
         return self.reg
@@ -161,7 +164,7 @@ class SignatureRegression(object):
             plt.scatter(Y, Ypred)
             plt.title("Ypred against Y")
             plt.show()
-        return np.sum((Y - Ypred) ** 2) / len(Y)
+        return np.mean((Y - Ypred) ** 2)
 
 
 class SignatureOrderSelection(object):
@@ -290,7 +293,7 @@ class SignatureOrderSelection(object):
 
         return hatm
 
-    def get_hatm(self, X, Y, Kpen, plot=False):
+    def get_hatm(self, X, Y, Kpen_values=np.linspace(10 ** (-5), 10 ** 2, num=200), plot=False):
         """Computes the estimator of the truncation order by minimizing the sum
         of hatL and the penalization, over values of k from 1 to max_k.
 
@@ -320,6 +323,9 @@ class SignatureOrderSelection(object):
         objective: array, shape (max_k)
             The array of values of the objective function, minimized at hatm.
         """
+        self.slope_heuristic(X, Y, Kpen_values)
+        Kpen = float(input("Enter slope heuristic constant Kpen: "))
+
         objective = np.zeros(self.max_k + 1)
         loss = np.zeros(self.max_k + 1)
         pen = np.zeros(self.max_k + 1)
@@ -337,7 +343,7 @@ class SignatureOrderSelection(object):
             plt.plot(np.arange(self.max_k + 1), objective, label="sum")
             plt.legend()
             plt.show()
-        return hatm, objective
+        return hatm
 
 
 class SplineRegression(object):
@@ -364,3 +370,43 @@ class SplineRegression(object):
     def predict(self, X):
         fd_basis = self.data_to_basis(X)
         return self.reg.predict(fd_basis)
+
+    def get_loss(self, X, Y, plot=False):
+        Ypred = self.predict(X)
+        if plot:
+            plt.scatter(Y, Ypred)
+            plt.title("Ypred against Y")
+            plt.show()
+        return np.mean((Y - Ypred) ** 2)
+
+
+def select_nbasis_cv(X, Y, nbasis_grid=np.arange(10) + 4):
+    score = []
+
+    for nbasis in nbasis_grid:
+        kf = KFold(n_splits=5)
+        score_i = []
+        for train, test in kf.split(X):
+            reg = SplineRegression(nbasis)
+            reg.fit(X[train], Y[train])
+            score_i += [np.mean((reg.predict(X[test]) - Y[test]) ** 2)]
+        score += [np.mean(score_i)]
+    return nbasis_grid[np.argmin(score)]
+
+
+def select_hatm_cv(X, Y, max_k=None, normalize_path=False):
+    d = X.shape[2]
+    max_features = 10 ** 4
+    if max_k is None:
+        max_k = math.floor((math.log(max_features * (d - 1) + 1) / math.log(d)) - 1)
+    score = []
+    print("max k:", max_k)
+    for k in range(max_k+1):
+        kf = KFold(n_splits=5)
+        score_i = []
+        for train, test in kf.split(X):
+            reg = SignatureRegression(d, k,normalize_path=normalize_path)
+            reg.fit(X[train], Y[train])
+            score_i += [reg.get_loss(X[test],Y[test])]
+        score += [np.mean(score_i)]
+    return np.argmin(score)

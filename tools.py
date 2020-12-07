@@ -3,6 +3,12 @@ import iisignature as isig
 import numpy as np
 
 
+def add_time(X):
+	times = np.linspace(0, 1, X.shape[1]).repeat(X.shape[0]).reshape((X.shape[0], X.shape[1], 1))
+	Xtime = np.concatenate([X, times], axis=2)
+	return Xtime
+
+
 def get_signature(path, order, norm_path=True):
     """ Returns the signature of a path truncated at a certain order.
 

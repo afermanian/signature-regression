@@ -57,10 +57,19 @@ class DataGenerator(object):
 		noise = 2 * self.noise_std * np.random.random(size=X.shape) - self.noise_std
 		return X + noise
 
-	def add_time(self, X):
-		times = np.linspace(0, 1, self.npoints).repeat(X.shape[0]).reshape((X.shape[0], self.npoints, 1))
-		Xtime = np.concatenate([X, times], axis=2)
-		return Xtime
+	def get_X_dependent(self, n):
+
+		X = np.zeros((n, self.npoints, self.d))
+
+		times = np.linspace(0, 1, num=self.npoints)
+		for i in range(n):
+			sinus_param = np.random.random(size=4)
+			for j in range(self.d):
+				param = np.random.random() * sinus_param
+				X[i, :, j] = param[0] + 10 * param[1] * np.sin(
+					times * np.pi * 2 / param[2]) + 10 * (times - param[3]) ** 3
+		noise = 2 * self.noise_std * np.random.random(size=X.shape) - self.noise_std
+		return X + noise
 
 	def get_Y_sig(self, X, mast, noise_std, plot=False):
 		"""Compute the target values Y as scalar products of the truncated
@@ -110,6 +119,18 @@ class DataGenerator(object):
 			plt.title("Y against Y+noise")
 			plt.show()
 		return Y + noise
+
+	def get_XY(self, ntrain, X_type='independent', Y_type='mean'):
+		if X_type == 'dependent':
+			Xraw = self.get_X_dependent(ntrain)
+		else:
+			Xraw = self.get_X(ntrain)
+		if Y_type=='mean':
+			Y = np.mean(Xraw[:, -1, :], axis=1)
+		elif Y_type=='max':
+			Y = np.max(Xraw[:, -1, :], axis=1)
+		X = Xraw[:, :-1, :]
+		return X, Y
 
 # class dataGenerator(object):
 # 	def __init__(self,nb_points=100,nb_simu=1,dim=1,noise_std=0):
