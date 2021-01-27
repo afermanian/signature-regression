@@ -1,4 +1,4 @@
-# Linear functional regression with truncated signatures ([preprint](arxiv))
+# Linear functional regression with truncated signatures ([preprint](https://arxiv.org/abs/2006.08442))
 
 We propose a novel methodology for regressing a real output on vector-valued functional covariates. This methodology is based on the notion of signature, which is a representation of a function as an infinite series of its iterated integrals. The signature depends crucially on a truncation parameter for which an estimator is provided, together with theoretical guarantees. We provide here the code to compute an estimator of the truncation parameter, which is then used to implement a linear regression with signature features. The procedure is summarised below:
 
@@ -52,6 +52,12 @@ There are 3 scripts that reproduce the various experiments of the paper.
 
 ## Citation
 
-
-
+```bibtex
+@article{fermanian2020linear,
+  title={Linear functional regression with truncated signatures},
+  author={Fermanian, Adeline},
+  journal={arXiv:2006.08442},
+  year={2020}
+}
+```
 
