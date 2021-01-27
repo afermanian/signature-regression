@@ -1,14 +1,17 @@
 import iisignature as isig
 import math
 import numpy as np
-from sklearn.linear_model import RidgeCV,Ridge
+
+from sklearn.linear_model import RidgeCV, Ridge
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import StandardScaler
+
 from tools import get_sigX
 import matplotlib.pyplot as plt
 import seaborn as sns
-from skfda.representation.basis import VectorValued, BSpline
+from skfda.representation.basis import VectorValued, BSpline, Fourier
 from skfda.representation.grid import FDataGrid
 from skfda.ml.regression import LinearRegression
-from sklearn.model_selection import KFold
 
 sns.set()
 
@@ -25,61 +28,19 @@ class SignatureRegression(object):
     k: int
             Truncation order of the signature
 
-    normalize_path : boolean, default=True
-        Whether to normalize the path by (k!)^(1/k) before computing
-        signatures
+    scaling: boolean, default=True
+        Whether to scale the predictor matrix to have zero mean and unit variance
     """
 
-    def __init__(self, d, k, normalize_path=False, alpha=None):
-        self.d = d
-        self.normalize_path = normalize_path
+    def __init__(self, k, scaling=False, alpha=None):
+        self.scaling = scaling
         self.reg = Ridge(normalize=False, fit_intercept=False, solver='svd')
         self.k = k
         self.alpha = alpha
+        if self.scaling:
+            self.scaler = StandardScaler()
 
-    def fit_alpha(self, X, Y, plot=False, alphas=np.linspace(10 ** (-6), 100, num=1000)):
-        """Gets the best regularization parameter for a Ridge regression on
-        signatures truncated at k, by scikit-learn built-in cross-validation.
-
-        Parameters
-        ----------
-        Y: array, shape (n)
-            Array of target values.
-
-        X: array, shape (n,n_points,d)
-            Array of training paths. It is a 3-dimensional array, containing
-            the coordinates in R^d of n piecewise linear paths, each composed of
-            n_points.
-
-        plot: boolean, default=False
-            If True, plots the errors against the regularization parameters.
-
-        alphas: array, default=np.linspace(10**(-6),10,num=1000)
-            Values of the regularization paramete to test.
-
-        Returns
-        -------
-        alpha: float
-            The best regularization parameter among alphas.
-        """
-        if self.alpha is not None:
-            self.reg.alpha_ = self.alpha
-        else:
-            reg_cv = RidgeCV(alphas=alphas, store_cv_values=True, fit_intercept=False,
-                      gcv_mode='svd')
-            sigX = get_sigX(X, self.k)
-
-            reg_cv.fit(sigX, Y)
-            if plot:
-                print(alphas.shape, reg_cv.cv_values_.shape)
-                plt.plot(alphas, np.mean(reg_cv.cv_values_, axis=0)[0, :])
-                plt.show()
-
-            self.alpha = reg_cv.alpha_
-            self.reg.alpha_ = self.alpha
-        return self.alpha
-
-    def fit(self, X, Y):
+    def fit(self, X, Y, alphas=np.linspace(10 ** (-6), 100, num=1000)):
         """Fit a signature ridge regression.
 
         Parameters
@@ -103,8 +64,19 @@ class SignatureRegression(object):
         Ypred: array, shape (n)
             Array of predicted values.
         """
-        self.fit_alpha(X, Y)
-        sigX = get_sigX(X, self.k, norm_path=self.normalize_path)
+
+        sigX = get_sigX(X, self.k)
+        if self.scaling:
+            self.scaler.fit(sigX)
+            sigX = self.scaler.transform(sigX)
+
+        if self.alpha is not None:
+            self.reg.alpha_ = self.alpha
+        else:
+            reg_cv = RidgeCV(alphas=alphas, store_cv_values=True, fit_intercept=False, gcv_mode='svd')
+            reg_cv.fit(sigX, Y)
+            self.alpha = reg_cv.alpha_
+            self.reg.alpha_ = self.alpha
         self.reg.fit(sigX, Y)
         return self.reg
 
@@ -125,8 +97,10 @@ class SignatureRegression(object):
             Array of predicted values.
         """
 
-        SigX = get_sigX(X, self.k, norm_path=self.normalize_path)
-        Ypred = self.reg.predict(SigX)
+        sigX = get_sigX(X, self.k)
+        if self.scaling:
+            sigX = self.scaler.transform(sigX)
+        Ypred = self.reg.predict(sigX)
         return Ypred
 
     def get_loss(self, X, Y, plot=False):
@@ -158,10 +132,8 @@ class SignatureRegression(object):
         """
         Ypred = self.predict(X)
         if plot:
-            plt.plot(self.reg.coef_)
-            plt.title("Regression coefficients")
-            plt.show()
             plt.scatter(Y, Ypred)
+            plt.plot([0.9 * np.min(Y), 1.1 * np.max(Y)], [0.9 * np.min(Y), 1.1 * np.max(Y)], '--', color='black')
             plt.title("Ypred against Y")
             plt.show()
         return np.mean((Y - Ypred) ** 2)
@@ -189,7 +161,7 @@ class SignatureOrderSelection(object):
         decrease anymore.
     """
 
-    def __init__(self, d, rho=1 / 4, Kpen=1, alpha=1, max_features=None):
+    def __init__(self, d, rho=0.4, Kpen=None, alpha=None, max_features=None):
         self.d = d
         self.rho = rho
         self.Kpen = Kpen
@@ -201,8 +173,9 @@ class SignatureOrderSelection(object):
         self.max_k = math.floor((math.log(self.max_features * (d - 1) + 1) / math.log(d)) - 1)
 
     def fit_alpha(self, X, Y):
-        sigreg = SignatureRegression(self.d, 1)
-        self.alpha = sigreg.fit_alpha(X, Y)
+        sigreg = SignatureRegression(1)
+        sigreg.fit(X, Y)
+        self.alpha = sigreg.reg.alpha_
         return self.alpha
 
     def get_penalization(self, n, k, Kpen):
@@ -260,11 +233,12 @@ class SignatureOrderSelection(object):
         hatm: array, shape (n_K)
             The estimator hatm obtained for each value of Kpen in Kpen_values.
         """
-        self.fit_alpha(X, Y)
+        if self.alpha is None:
+            self.fit_alpha(X, Y)
         hatm = np.zeros(len(Kpen_values))
         loss = np.zeros(self.max_k + 1)
         for j in range(self.max_k + 1):
-            sigReg = SignatureRegression(self.d, j, alpha=self.alpha)
+            sigReg = SignatureRegression(j, alpha=self.alpha)
             sigReg.fit(X, Y)
             loss[j] = sigReg.get_loss(X, Y)
 
@@ -323,14 +297,16 @@ class SignatureOrderSelection(object):
         objective: array, shape (max_k)
             The array of values of the objective function, minimized at hatm.
         """
-        self.slope_heuristic(X, Y, Kpen_values)
-        Kpen = float(input("Enter slope heuristic constant Kpen: "))
-
+        if not self.Kpen:
+            self.slope_heuristic(X, Y, Kpen_values)
+            Kpen = float(input("Enter slope heuristic constant Kpen: "))
+        else:
+            Kpen = self.Kpen
         objective = np.zeros(self.max_k + 1)
         loss = np.zeros(self.max_k + 1)
         pen = np.zeros(self.max_k + 1)
         for i in range(self.max_k + 1):
-            sigReg = SignatureRegression(self.d, i, alpha=self.alpha)
+            sigReg = SignatureRegression(i, alpha=self.alpha)
             sigReg.fit(X, Y)
             loss[i] = sigReg.get_loss(X, Y)
             pen[i] = self.get_penalization(Y.shape[0], i, Kpen)
@@ -346,17 +322,21 @@ class SignatureOrderSelection(object):
         return hatm
 
 
-class SplineRegression(object):
-    def __init__(self, nbasis):
+class BasisRegression(object):
+    def __init__(self, nbasis, basis_type='bspline'):
         self.nbasis = nbasis
         self.reg = LinearRegression()
+        self.basis_type = basis_type
 
     def data_to_basis(self, X):
         grid_points = np.linspace(0, 1, X.shape[1])
         fd = FDataGrid(X, grid_points)
         basis_vec = []
         for i in range(X.shape[2]):
-            basis_vec.append(BSpline(n_basis=self.nbasis))
+            if self.basis_type == 'bspline':
+                basis_vec.append(BSpline(n_basis=self.nbasis))
+            elif self.basis_type == 'fourier':
+                basis_vec.append(Fourier(n_basis=self.nbasis))
         basis = VectorValued(basis_vec)
         fd_basis = fd.to_basis(basis)
         return fd_basis
@@ -375,38 +355,41 @@ class SplineRegression(object):
         Ypred = self.predict(X)
         if plot:
             plt.scatter(Y, Ypred)
+            plt.plot([0.9 * np.min(Y), 1.1 * np.max(Y)], [0.9 * np.min(Y), 1.1 * np.max(Y)], '--', color='black')
             plt.title("Ypred against Y")
             plt.show()
         return np.mean((Y - Ypred) ** 2)
 
 
-def select_nbasis_cv(X, Y, nbasis_grid=np.arange(10) + 4):
+def select_nbasis_cv(X, Y, basis_type, nbasis_grid=np.arange(10) + 4):
     score = []
 
     for nbasis in nbasis_grid:
         kf = KFold(n_splits=5)
         score_i = []
         for train, test in kf.split(X):
-            reg = SplineRegression(nbasis)
+            reg = BasisRegression(nbasis, basis_type)
             reg.fit(X[train], Y[train])
             score_i += [np.mean((reg.predict(X[test]) - Y[test]) ** 2)]
         score += [np.mean(score_i)]
     return nbasis_grid[np.argmin(score)]
 
 
-def select_hatm_cv(X, Y, max_k=None, normalize_path=False):
+def select_hatm_cv(X, Y, max_k=None, scaling=False, plot=False):
     d = X.shape[2]
     max_features = 10 ** 4
     if max_k is None:
         max_k = math.floor((math.log(max_features * (d - 1) + 1) / math.log(d)) - 1)
     score = []
-    print("max k:", max_k)
     for k in range(max_k+1):
         kf = KFold(n_splits=5)
         score_i = []
         for train, test in kf.split(X):
-            reg = SignatureRegression(d, k,normalize_path=normalize_path)
+            reg = SignatureRegression(k, scaling=scaling)
             reg.fit(X[train], Y[train])
-            score_i += [reg.get_loss(X[test],Y[test])]
+            score_i += [reg.get_loss(X[test], Y[test])]
         score += [np.mean(score_i)]
+    if plot:
+        plt.plot(np.arange(max_k+1), score)
+        plt.show()
     return np.argmin(score)

@@ -2,12 +2,15 @@ import numpy as np
 import iisignature as isig
 import matplotlib.pyplot as plt
 import seaborn as sns
+from skfda.misc.covariances import Exponential
+from skfda.datasets import make_gaussian_process
 
 from tools import get_sigX
 
 sns.set()
 
 
+# noinspection PyPep8Naming
 class DataGenerator(object):
 	"""Generate some training data.
 
@@ -22,12 +25,15 @@ class DataGenerator(object):
 	noise_std: float or None
 		Variance of the Gaussian noise on X
 	"""
-	def __init__(self, npoints, d, noise_std=0):
+
+	def __init__(self, npoints, d, noise_std=0, seed=None):
 		self.npoints = npoints
 		self.d = d
 		self.noise_std = noise_std
+		if seed:
+			np.random.seed(seed)
 
-	def get_X(self, n):
+	def get_X_polysinus(self, n, X_type):
 		""" Generates n sample paths X:[0,1] -> R^d, defined by
 		X_t=alpha_1 + 10*alpha_2*sinus(2*pi*t/alpha_3) + 10*(t-alpha_4)^3,
 		where the alphas are sampled uniformly over [0,1].X is interpolated by
@@ -50,26 +56,42 @@ class DataGenerator(object):
 
 		times = np.linspace(0, 1, num=self.npoints)
 		for i in range(n):
+			if X_type == 'dependent':
+				sinus_param = np.random.random(size=4)
 			for j in range(self.d):
-				param = np.random.random(size=4)
+				if X_type == 'dependent':
+					param = np.random.random() * sinus_param
+				else:
+					param = np.random.random(size=4)
 				X[i, :, j] = param[0] + 10 * param[1] * np.sin(
 					times * np.pi * 2 / param[2]) + 10 * (times - param[3]) ** 3
-		noise = 2 * self.noise_std * np.random.random(size=X.shape) - self.noise_std
-		return X + noise
+		return X
 
-	def get_X_dependent(self, n):
-
+	def get_XY_gaussian_process(self, n, X_type='gp_independent'):
 		X = np.zeros((n, self.npoints, self.d))
+		times = np.repeat(np.expand_dims(np.linspace(0, 1, self.npoints), -1), n * self.d, 1)
+		times = times.reshape((self.npoints, n, self.d)).transpose((1, 0, 2))
 
-		times = np.linspace(0, 1, num=self.npoints)
+		if X_type == 'gp_independent':
+			slope = 3 * (2 * np.random.random((n, self.d)) - 1)
+
+		elif X_type == 'gp_dependent':
+			alpha = 3 * (2 * np.random.random(n) - 1)
+			alpha = np.repeat(np.expand_dims(alpha, -1), self.d, 1)
+			slope = alpha * np.random.random((n, self.d))
+
+		else:
+			raise NameError('X_type not well specified')
+
+		Y = np.sqrt(np.sum(slope ** 2, axis=1))
+		slope = np.repeat(np.expand_dims(slope, 0), self.npoints, 0).transpose((1, 0, 2))
 		for i in range(n):
-			sinus_param = np.random.random(size=4)
-			for j in range(self.d):
-				param = np.random.random() * sinus_param
-				X[i, :, j] = param[0] + 10 * param[1] * np.sin(
-					times * np.pi * 2 / param[2]) + 10 * (times - param[3]) ** 3
-		noise = 2 * self.noise_std * np.random.random(size=X.shape) - self.noise_std
-		return X + noise
+			gp = make_gaussian_process(n_features=self.npoints, n_samples=self.d, cov=Exponential())
+			X[i, :, :] = gp.data_matrix.T[0]
+
+		X = X + slope * times
+
+		return X, Y
 
 	def get_Y_sig(self, X, mast, noise_std, plot=False):
 		"""Compute the target values Y as scalar products of the truncated
@@ -120,69 +142,17 @@ class DataGenerator(object):
 			plt.show()
 		return Y + noise
 
-	def get_XY(self, ntrain, X_type='independent', Y_type='mean'):
-		if X_type == 'dependent':
-			Xraw = self.get_X_dependent(ntrain)
-		else:
-			Xraw = self.get_X(ntrain)
-		if Y_type=='mean':
-			Y = np.mean(Xraw[:, -1, :], axis=1)
-		elif Y_type=='max':
-			Y = np.max(Xraw[:, -1, :], axis=1)
-		X = Xraw[:, :-1, :]
-		return X, Y
+	def get_XY_polysinus(self, ntrain, X_type='independent', Y_type='mean'):
 
-# class dataGenerator(object):
-# 	def __init__(self,nb_points=100,nb_simu=1,dim=1,noise_std=0):
-# 		self.nb_points=nb_points
-# 		self.nb_simu=nb_simu
-# 		self.dim=dim
-# 		X=np.zeros((self.nb_simu,self.nb_points,self.dim))
-# 		times=np.linspace(0,1,num=self.nb_points)
-# 		for i in range(self.nb_simu):
-# 			for j in range(dim):
-# 				param=np.random.random(size=4)
-# 				X[i,:,j]=param[0]+ 10*param[1]*np.sin(times*np.pi*2/param[1]) + 10*(times-param[2])**3
-# 		self.data=X
-# 		self.data_noise=X+np.random.normal(scale=noise_std,size=np.shape(X))
-#
-# 	def get_output(self,model,noise_std=0.1,task="regression"):
-# 		Y=np.zeros(self.nb_simu)
-# 		noise=np.random.normal(scale=noise_std,size=self.nb_simu)
-# 		deltat=1/self.nb_points
-# 		beta=np.cos(np.linspace(0,1,num=self.nb_points)*2*np.pi)
-# 		if model=="linear":
-# 			for i in range(self.nb_simu):
-# 				for j in range(self.dim):
-# 					Y[i]+=np.sum(self.data[i,1:,j]*beta[1:] - self.data[i,:-1,j]*beta[:-1])*deltat/self.dim
-#
-# 		elif model=="nonlinear":
-# 			for i in range(self.nb_simu):
-# 				for j in range(self.dim):
-# 					Y[i]+=np.sum(beta[1:]*(self.data[i,1:,j])**2 -beta[:-1] *(self.data[i,:-1,j])**2)*deltat/self.dim
-#
-# 		elif model=="interaction":
-# 			if self.dim==1:
-# 				raise Exception("Model with interaction needs at least 2 dimensions")
-# 			for i in range(self.nb_simu):
-# 				for j in range(self.dim-1):
-# 					Y[i]+=np.sum(((self.data[i,1:,j])**2)*np.log(np.abs(self.data[i,1:,j+1])) -
-# 						((self.data[i,:-1,j])**2)*np.log(np.abs(self.data[i,:-1,j+1])))*deltat/(self.dim-1)
-# 		elif model=="sparse":
-# 			for i in range(self.nb_simu):
-# 				Y[i]=np.sum(beta[1:]*(self.data[i,1:,0])**2 -beta[:-1] *(self.data[i,:-1,0])**2)*deltat/self.dim
-# 		elif model=="signature":
-# 			sig=signatureTransform(2,self.dim)
-# 			Y=np.sum(sig.get_signature(self.data),axis=1)
-# 		else:
-# 			Y=np.arange(self.nb_simu)
-#
-#
-# 		if task=="regression":
-# 			Y_noise=(Y-np.mean(Y))/np.std(Y)+noise
-# 			#plt.scatter(Y,Y_noise)
-# 			#plt.show()
-# 			return(Y_noise)
-# 		else:
-# 			Y_noise=Y+noise
-# 			return(Y_noise >=0.5)
+		Xraw = self.get_X_polysinus(ntrain, X_type)
+
+		if Y_type == 'mean':
+			Y = np.mean(Xraw[:, -1, :], axis=1)
+		elif Y_type == 'max':
+			Y = np.max(Xraw[:, -1, :], axis=1)
+		else:
+			raise NameError('Y_type not well specified')
+
+		X = Xraw[:, :-1, :]
+		noise = 2 * self.noise_std * np.random.random(size=X.shape) - self.noise_std
+		return X + noise, Y

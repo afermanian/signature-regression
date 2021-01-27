@@ -5,7 +5,8 @@ import itertools
 
 sns.set()
 
-def plot_tensor_heatmap(x,d,k,label=False):
+
+def plot_tensor_heatmap(x, d, k, label=False, figsize=(20, 10), textsize=5):
 	''' Plot a heatmap of a vector that has the same structure as a truncated 
 	signature, that is which is a sum of tensors k+1 tensors of order 1 up to 
 	k+1 in R^d.
@@ -26,29 +27,29 @@ def plot_tensor_heatmap(x,d,k,label=False):
 		the heatmap.
 	'''
 
-	mat_coef=np.zeros((k+1,d**k))
-	mask=np.zeros((k+1,d**k))
-	annot=np.full((k+1,d**k),"",dtype='U256')
-	count=0
+	mat_coef = np.zeros((k + 1, d ** k))
+	mask = np.zeros((k + 1, d ** k))
+	annot = np.full((k + 1, d ** k), "", dtype='U256')
+	count = 0
 	for j in range(k+1):
-		mat_coef[j,:d**j]=x[count:count+d**j]
-		mask[j,d**j:]=True
-		inner_count=0
-		for label in itertools.product(np.arange(d)+1,repeat=j):
-			annot[j,inner_count]=str(label)
-			inner_count+=1
-		count+=d**j
+		mat_coef[j, :d**j] = x[count:count+d**j]
+		mask[j, d**j:] = True
+		inner_count = 0
+		for annot_label in itertools.product(np.arange(d)+1, repeat=j):
+			annot[j, inner_count] = str(annot_label)
+			inner_count += 1
+		count += d**j
 	with sns.axes_style("white"):
-		f, ax = plt.subplots()
+		f, ax = plt.subplots(figsize=figsize)
 		if label:
-			ax = sns.heatmap(mat_coef, mask=mask, vmax=.3,xticklabels=False,
-                       center=0,cbar_kws={"orientation": "horizontal"})		
-		else:
+			print("there is a label")
 			ax = sns.heatmap(
-				mat_coef, mask=mask,xticklabels=False,center=0,
-				cbar_kws={"orientation": "horizontal"},annot=annot,fmt='',
-				annot_kws={"size": 5})
-	plt.show()
+				mat_coef, mask=mask, xticklabels=False, center=0,
+				cbar_kws={"orientation": "horizontal"}, annot=annot, fmt='',
+				annot_kws={"size": textsize})
+		else:
+			ax = sns.heatmap(mat_coef, mask=mask, xticklabels=False, center=0, cbar_kws={"orientation": "horizontal"})
+	return f, ax
 
 
 
