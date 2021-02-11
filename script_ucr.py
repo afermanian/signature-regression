@@ -1,4 +1,4 @@
-from read_data import get_ucr
+from get_data import get_ucr
 from main import orderEstimator
 from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
