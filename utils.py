@@ -70,7 +70,6 @@ def get_ex_results(dirname):
 
     return df
 
-
 def move_legend(ax, new_loc, **kws):
     # Solves problem when moving legends with seaborn and histplot
     old_legend = ax.legend_
@@ -78,3 +77,4 @@ def move_legend(ax, new_loc, **kws):
     labels = [t.get_text() for t in old_legend.get_texts()]
     title = old_legend.get_title().get_text()
     ax.legend(handles, labels, loc=new_loc, title=title, bbox_to_anchor=(1.05, 1), **kws)
+

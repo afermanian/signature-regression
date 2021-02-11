@@ -93,6 +93,7 @@ class DataGenerator(object):
 
 		return X, Y
 
+
 	def get_Y_sig(self, X, mast, noise_std=100, plot=False):
 		"""Compute the target values Y as scalar products of the truncated
 		signatures of rows of X with a certain parameter beta plus a gaussian
@@ -142,8 +143,8 @@ class DataGenerator(object):
 			plt.show()
 		return Y + noise
 
-	def get_XY_polysinus(self, ntrain, X_type='independent', Y_type='mean', mast=5):
 
+	def get_XY_polysinus(self, ntrain, X_type='independent', Y_type='mean', mast=5):
 		Xraw = self.get_X_polysinus(ntrain, X_type)
 
 		if Y_type == 'mean':

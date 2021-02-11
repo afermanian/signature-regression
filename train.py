@@ -161,11 +161,13 @@ class SignatureOrderSelection(object):
         decrease anymore.
     """
 
+
     def __init__(self, d, rho=0.4, Kpen=None, alpha=None, max_features=10**4):
         self.d = d
         self.rho = rho
         self.Kpen = Kpen
         self.alpha = alpha
+
         self.max_features = max_features
         self.max_k = math.floor((math.log(self.max_features * (d - 1) + 1) / math.log(d)) - 1)
 
@@ -203,6 +205,7 @@ class SignatureOrderSelection(object):
             size_sig = isig.siglength(self.d, k) + 1
 
         return Kpen * n ** (-self.rho) * math.sqrt(size_sig)
+
 
     def slope_heuristic(self, X, Y, Kpen_values, savefig=False):
         """Implements the slope heuristic to select a value for Kpen, the
@@ -265,6 +268,7 @@ class SignatureOrderSelection(object):
         plt.show()
 
         return hatm
+
 
     def get_hatm(self, X, Y, Kpen_values=np.linspace(10 ** (-5), 10 ** 2, num=200), plot=False, savefig=False):
         """Computes the estimator of the truncation order by minimizing the sum
