@@ -12,6 +12,7 @@ import seaborn as sns
 from skfda.representation.basis import VectorValued, BSpline, Fourier
 from skfda.representation.grid import FDataGrid
 from skfda.ml.regression import LinearRegression
+from skfda.preprocessing.dim_reduction.projection import FPCA
 
 sns.set()
 
@@ -330,8 +331,11 @@ class BasisRegression(object):
         self.nbasis = nbasis
         self.reg = LinearRegression()
         self.basis_type = basis_type
+        self.coef = None
+        if self.basis_type=='fPCA':
+            self.fpca_basis = FPCA(self.nbasis)
 
-    def data_to_basis(self, X):
+    def data_to_basis(self, X, fit_fPCA=True):
         grid_points = np.linspace(0, 1, X.shape[1])
         fd = FDataGrid(X, grid_points)
         basis_vec = []
@@ -340,8 +344,15 @@ class BasisRegression(object):
                 basis_vec.append(BSpline(n_basis=self.nbasis))
             elif self.basis_type == 'fourier':
                 basis_vec.append(Fourier(n_basis=self.nbasis))
+            elif self.basis_type == 'fPCA':
+                basis_vec.append(BSpline(n_basis=7))
+
         basis = VectorValued(basis_vec)
         fd_basis = fd.to_basis(basis)
+        if self.basis_type == 'fPCA':
+            if fit_fPCA:
+                self.fpca_basis = self.fpca_basis.fit(fd_basis)
+            fd_basis = self.fpca_basis.transform(fd_basis)
         return fd_basis
 
     def fit(self, X, Y):
@@ -351,7 +362,7 @@ class BasisRegression(object):
         return self.reg
 
     def predict(self, X):
-        fd_basis = self.data_to_basis(X)
+        fd_basis = self.data_to_basis(X, fit_fPCA=False)
         return self.reg.predict(fd_basis)
 
     def get_loss(self, X, Y, plot=False):
@@ -364,9 +375,12 @@ class BasisRegression(object):
         return np.mean((Y - Ypred) ** 2)
 
 
-def select_nbasis_cv(X, Y, basis_type, nbasis_grid=np.arange(10) + 4):
+def select_nbasis_cv(X, Y, basis_type):
     score = []
-
+    if basis_type == 'fPCA':
+        nbasis_grid = np.arange(5) + 1
+    else:
+        nbasis_grid = np.arange(10) + 4
     for nbasis in nbasis_grid:
         kf = KFold(n_splits=5)
         score_i = []

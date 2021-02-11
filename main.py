@@ -53,7 +53,7 @@ def my_main(_run, d, npoints, noise_X_std, ntrain, nval, regressor, selection_me
             _run.log_scalar("val.error", sig_reg.get_loss(Xtimeval, Yval))
             _run.log_scalar("training.error", sig_reg.get_loss(Xtimetrain, Ytrain))
 
-        elif regressor == 'bspline' or regressor == 'fourier':
+        elif regressor in ['bspline', 'fourier', 'fPCA']:
             nbasis = select_nbasis_cv(Xtrain, Ytrain, regressor)
             spline_reg = BasisRegression(nbasis, basis_type=regressor)
             spline_reg.fit(Xtrain, Ytrain)
@@ -64,7 +64,6 @@ def my_main(_run, d, npoints, noise_X_std, ntrain, nval, regressor, selection_me
 
         else:
             raise NameError('regressor not well specified')
-
     except Exception as e:
         _run.log_scalar('error', str(e))
 
