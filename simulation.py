@@ -93,7 +93,8 @@ class DataGenerator(object):
 
 		return X, Y
 
-	def get_Y_sig(self, X, mast, noise_std, plot=False):
+
+	def get_Y_sig(self, X, mast, noise_std=100, plot=False):
 		"""Compute the target values Y as scalar products of the truncated
 		signatures of rows of X with a certain parameter beta plus a gaussian
 		noise. Y follows therefore the expected signature model.
@@ -142,14 +143,16 @@ class DataGenerator(object):
 			plt.show()
 		return Y + noise
 
-	def get_XY_polysinus(self, ntrain, X_type='independent', Y_type='mean'):
 
+	def get_XY_polysinus(self, ntrain, X_type='independent', Y_type='mean', mast=5):
 		Xraw = self.get_X_polysinus(ntrain, X_type)
 
 		if Y_type == 'mean':
 			Y = np.mean(Xraw[:, -1, :], axis=1)
 		elif Y_type == 'max':
 			Y = np.max(Xraw[:, -1, :], axis=1)
+		elif Y_type == 'sig':
+			Y = self.get_Y_sig(Xraw[:, :-1, :], mast, noise_std=10)
 		else:
 			raise NameError('Y_type not well specified')
 

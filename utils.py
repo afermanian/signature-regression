@@ -69,3 +69,12 @@ def get_ex_results(dirname):
     #df = df.apply(lambda x: pd.to_numeric(x, errors='ignore'), axis=1)
 
     return df
+
+def move_legend(ax, new_loc, **kws):
+    # Solves problem when moving legends with seaborn and histplot
+    old_legend = ax.legend_
+    handles = old_legend.legendHandles
+    labels = [t.get_text() for t in old_legend.get_texts()]
+    title = old_legend.get_title().get_text()
+    ax.legend(handles, labels, loc=new_loc, title=title, bbox_to_anchor=(1.05, 1), **kws)
+

@@ -12,6 +12,7 @@ import seaborn as sns
 from skfda.representation.basis import VectorValued, BSpline, Fourier
 from skfda.representation.grid import FDataGrid
 from skfda.ml.regression import LinearRegression
+from skfda.preprocessing.dim_reduction.projection import FPCA
 
 sns.set()
 
@@ -161,15 +162,14 @@ class SignatureOrderSelection(object):
         decrease anymore.
     """
 
-    def __init__(self, d, rho=0.4, Kpen=None, alpha=None, max_features=None):
+
+    def __init__(self, d, rho=0.4, Kpen=None, alpha=None, max_features=10**4):
         self.d = d
         self.rho = rho
         self.Kpen = Kpen
         self.alpha = alpha
-        if max_features is not None:
-            self.max_features = max_features
-        else:
-            self.max_features = 10 ** 4
+
+        self.max_features = max_features
         self.max_k = math.floor((math.log(self.max_features * (d - 1) + 1) / math.log(d)) - 1)
 
     def fit_alpha(self, X, Y):
@@ -207,7 +207,8 @@ class SignatureOrderSelection(object):
 
         return Kpen * n ** (-self.rho) * math.sqrt(size_sig)
 
-    def slope_heuristic(self, X, Y, Kpen_values):
+
+    def slope_heuristic(self, X, Y, Kpen_values, savefig=False):
         """Implements the slope heuristic to select a value for Kpen, the
         unknown constant in front of the penalization. To this end, hatm is
         computed for several values of Kpen, and these values are then plotted
@@ -263,11 +264,14 @@ class SignatureOrderSelection(object):
             else:
                 jump += 1
         ax.set(xlabel=r'$K_{pen}$', ylabel=r'$\hat{m}$')
+        if savefig:
+            plt.savefig('Figures/kpen_selection.png', bbox_inches='tight')
         plt.show()
 
         return hatm
 
-    def get_hatm(self, X, Y, Kpen_values=np.linspace(10 ** (-5), 10 ** 2, num=200), plot=False):
+
+    def get_hatm(self, X, Y, Kpen_values=np.linspace(10 ** (-5), 10 ** 2, num=200), plot=False, savefig=False):
         """Computes the estimator of the truncation order by minimizing the sum
         of hatL and the penalization, over values of k from 1 to max_k.
 
@@ -298,7 +302,7 @@ class SignatureOrderSelection(object):
             The array of values of the objective function, minimized at hatm.
         """
         if not self.Kpen:
-            self.slope_heuristic(X, Y, Kpen_values)
+            self.slope_heuristic(X, Y, Kpen_values, savefig=savefig)
             Kpen = float(input("Enter slope heuristic constant Kpen: "))
         else:
             Kpen = self.Kpen
@@ -327,8 +331,11 @@ class BasisRegression(object):
         self.nbasis = nbasis
         self.reg = LinearRegression()
         self.basis_type = basis_type
+        self.coef = None
+        if self.basis_type=='fPCA':
+            self.fpca_basis = FPCA(self.nbasis)
 
-    def data_to_basis(self, X):
+    def data_to_basis(self, X, fit_fPCA=True):
         grid_points = np.linspace(0, 1, X.shape[1])
         fd = FDataGrid(X, grid_points)
         basis_vec = []
@@ -337,8 +344,15 @@ class BasisRegression(object):
                 basis_vec.append(BSpline(n_basis=self.nbasis))
             elif self.basis_type == 'fourier':
                 basis_vec.append(Fourier(n_basis=self.nbasis))
+            elif self.basis_type == 'fPCA':
+                basis_vec.append(BSpline(n_basis=7))
+
         basis = VectorValued(basis_vec)
         fd_basis = fd.to_basis(basis)
+        if self.basis_type == 'fPCA':
+            if fit_fPCA:
+                self.fpca_basis = self.fpca_basis.fit(fd_basis)
+            fd_basis = self.fpca_basis.transform(fd_basis)
         return fd_basis
 
     def fit(self, X, Y):
@@ -348,7 +362,7 @@ class BasisRegression(object):
         return self.reg
 
     def predict(self, X):
-        fd_basis = self.data_to_basis(X)
+        fd_basis = self.data_to_basis(X, fit_fPCA=False)
         return self.reg.predict(fd_basis)
 
     def get_loss(self, X, Y, plot=False):
@@ -361,9 +375,12 @@ class BasisRegression(object):
         return np.mean((Y - Ypred) ** 2)
 
 
-def select_nbasis_cv(X, Y, basis_type, nbasis_grid=np.arange(10) + 4):
+def select_nbasis_cv(X, Y, basis_type):
     score = []
-
+    if basis_type == 'fPCA':
+        nbasis_grid = np.arange(5) + 1
+    else:
+        nbasis_grid = np.arange(10) + 4
     for nbasis in nbasis_grid:
         kf = KFold(n_splits=5)
         score_i = []
