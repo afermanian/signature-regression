@@ -3,6 +3,22 @@ from definitions import *
 
 
 def process_electricity_loads(data_folder='data/UCI/'):
+    """ Preprocess the Electricity Loads dataset: average the data to obtain hourly consumption and remove outliers. The
+     data is saved to a pickle.
+
+    Parameters
+    ----------
+    data_folder: str
+        Location of the raw data directory.
+
+    Returns
+    -------
+    data_day: pandas DataFrame
+        Electricity loads dataset with outliers removed and the values are daily averages.
+
+    data_hour: pandas DataFrame
+        Electricity loads dataset with outliers removed and the values are hourly averages.
+    """
     data = pd.read_csv(data_folder + 'LD2011_2014.txt', sep=';', index_col=0, header=0)
 
     for col in data.columns:

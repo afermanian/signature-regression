@@ -1,29 +1,30 @@
-import numpy as np
 import iisignature as isig
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 from skfda.misc.covariances import Exponential
 from skfda.datasets import make_gaussian_process
-
 from tools import get_sigX
 
 sns.set()
 
 
-# noinspection PyPep8Naming
 class DataGenerator(object):
 	"""Generate some training data.
 
 	Parameters
 	----------
-	n_points: int
-		Number of points in the piecewise linear approximations.
+	npoints: int
+		Number of sampling points of the data.
 
 	d: int
 		Dimension of the output space of the training paths.
 
 	noise_std: float or None
-		Variance of the Gaussian noise on X
+		Variance of the Gaussian noise on X.
+
+	seed:int
+		Random seed.
 	"""
 
 	def __init__(self, npoints, d, noise_std=0, seed=None):
@@ -35,31 +36,34 @@ class DataGenerator(object):
 
 	def get_X_polysinus(self, n, X_type):
 		""" Generates n sample paths X:[0,1] -> R^d, defined by
-		X_t=alpha_1 + 10*alpha_2*sinus(2*pi*t/alpha_3) + 10*(t-alpha_4)^3,
-		where the alphas are sampled uniformly over [0,1].X is interpolated by
-		a piecewise linear function with n_points. Each sample X is normalized
-		so that it has length 1.
+		X_t=alpha_1 + 10*alpha_2*sinus(2*pi*t/alpha_3) + 10*(t-alpha_4)^3. If X_type is 'smooth_independent', the
+		alphas are sampled uniformly over [0,1]. If 'X_type' is independent, the alphas of each sample are correlated
+		across coordinates.
 
 		Parameters
 		----------
 		n: int
-			Number of samples to simulate.
+			Number of samples.
+
+		X_type: str
+			Type of functional covariates. Possible values are 'smooth_dependent', 'smooth_independent' (for the smooth
+			curves with independent or dependent coordinates), 'gaussian_processes', 'weather' (for the Canadian Weather
+			dataset) and 'electricity_loads' (for the Electricity Loads dataset).
 
 		Returns
 		-------
-		X: array, shape (n,n_points,d)
-			Array of training paths. It is a 3-dimensional array, containing
-			the coordinates in R^d of n piecewise linear paths, each composed of
-			n_points.
+		X: array, shape (n, self.npoints, self.d)
+			Array of training paths. It is a 3-dimensional array, containing the coordinates in R^d of n piecewise
+			linear paths, each composed of npoints.
 		"""
 		X = np.zeros((n, self.npoints, self.d))
 
 		times = np.linspace(0, 1, num=self.npoints)
 		for i in range(n):
-			if X_type == 'dependent':
+			if X_type == 'smooth_dependent':
 				sinus_param = np.random.random(size=4)
 			for j in range(self.d):
-				if X_type == 'dependent':
+				if X_type == 'smooth_dependent':
 					param = np.random.random() * sinus_param
 				else:
 					param = np.random.random(size=4)
@@ -67,21 +71,24 @@ class DataGenerator(object):
 					times * np.pi * 2 / param[2]) + 10 * (times - param[3]) ** 3
 		return X
 
-	def get_XY_gaussian_process(self, n, X_type='gp_independent'):
+	def get_XY_gaussian_process(self, n):
+		""" Generates n gaussian processes with a linear trend
+
+		Parameters
+		----------
+		n: int
+			Number of samples.
+
+		Returns
+		-------
+		X: array, shape (n, self.npoints, self.d)
+			Array of sample paths. It is a 3-dimensional array, containing the coordinates in R^d of n piecewise
+			linear paths, each composed of npoints.
+		"""
 		X = np.zeros((n, self.npoints, self.d))
 		times = np.repeat(np.expand_dims(np.linspace(0, 1, self.npoints), -1), n * self.d, 1)
 		times = times.reshape((self.npoints, n, self.d)).transpose((1, 0, 2))
-
-		if X_type == 'gp_independent':
-			slope = 3 * (2 * np.random.random((n, self.d)) - 1)
-
-		elif X_type == 'gp_dependent':
-			alpha = 3 * (2 * np.random.random(n) - 1)
-			alpha = np.repeat(np.expand_dims(alpha, -1), self.d, 1)
-			slope = alpha * np.random.random((n, self.d))
-
-		else:
-			raise NameError('X_type not well specified')
+		slope = 3 * (2 * np.random.random((n, self.d)) - 1)
 
 		Y = np.sqrt(np.sum(slope ** 2, axis=1))
 		slope = np.repeat(np.expand_dims(slope, 0), self.npoints, 0).transpose((1, 0, 2))
@@ -93,36 +100,31 @@ class DataGenerator(object):
 
 		return X, Y
 
-
 	def get_Y_sig(self, X, mast, noise_std=100, plot=False):
-		"""Compute the target values Y as scalar products of the truncated
-		signatures of rows of X with a certain parameter beta plus a gaussian
-		noise. Y follows therefore the expected signature model.
+		"""Compute the target values Y as scalar products of the truncated signatures of rows of X with a certain
+		parameter beta plus a gaussian noise. Y follows therefore the signature linear model.
 
 		Parameters
 		----------
-		X: array, shape (n,n_points,d)
-			Array of training paths. It is a 3-dimensional array, containing
-			the coordinates in R^d of n piecewise linear paths, each composed of
-			n_points.
+		X: array, shape (n, self.npoints, self.d)
+			Array of paths. It is a 3-dimensional array, containing the coordinates in R^d of n piecewise linear paths,
+			each composed of npoints.
 
 		mast: int
 			True value of the truncation order of the signature.
 
-		noise_std: float
-			Amount of noise of Y, Y is equal to the scalar product of the
-			signature of X against beta plus a uniform noise on
-			[-noise_std,noise_std].
+		noise_std: float, default=100
+			Amount of noise of Y, Y is equal to the scalar product of the signature of X against beta plus a uniform
+			noise on [-noise_std,noise_std].
 
 		plot: boolean, default=False
-			If True, output two plots: one plot with the signature coefficients
-			ofone sample and the regression vector beta, one scatter plot with Y
-			against Y+noise to check the calibration of the noise variance.
+			If True, output two plots: one plot with the signature coefficients of one sample and the regression vector
+			beta, one scatter plot with Y against Y+noise to check the calibration of the noise variance.
 
 		Returns
 		-------
 		Y: array, shape (n)
-			Target values, defined by the expected signature model.
+			Target values
 		"""
 		n = X.shape[0]
 
@@ -143,9 +145,34 @@ class DataGenerator(object):
 			plt.show()
 		return Y + noise
 
+	def get_XY_polysinus(self, n, X_type='smooth_independent', Y_type='mean', mast=5):
+		""" Generates n samples (X, Y) where X are smooth curves with independent or dependent coordinate, and Y is
+	either the mean or the max at the next time step.
 
-	def get_XY_polysinus(self, ntrain, X_type='independent', Y_type='mean', mast=5):
-		Xraw = self.get_X_polysinus(ntrain, X_type)
+		Parameters
+		----------
+		n: int
+			Number of samples.
+
+		X_type: str, default='smooth_independent'
+			Type of functional covariates. Possible values are 'smooth_dependent', 'smooth_independent'.
+
+		Y_type: str, default='mean'
+			Type of response. Possible values are 'mean', 'max', or 'sig'.
+
+		mast: int
+			True value of the truncation order of the signature. Used only if Y_type='sig'
+
+		Returns
+		-------
+		X: array, shape (n, self.npoints, self.d)
+			Array of sample paths. It is a 3-dimensional array, containing the coordinates in R^d of n piecewise
+			linear paths, each composed of npoints.
+
+		Y: array, shape (n)
+			Target values
+		"""
+		Xraw = self.get_X_polysinus(n, X_type)
 
 		if Y_type == 'mean':
 			Y = np.mean(Xraw[:, -1, :], axis=1)

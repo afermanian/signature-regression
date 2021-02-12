@@ -1,11 +1,27 @@
-from sklearn.model_selection import ParameterGrid
-from sacred.observers import FileStorageObserver
 import os
 import json
 import pandas as pd
+from sacred.observers import FileStorageObserver
+from sklearn.model_selection import ParameterGrid
 
 
 def gridsearch(ex, config_grid, niter=10, dirname='my_runs'):
+    """Loops over all the experiments in a configuration grid.
+
+    Parameters
+    ----------
+        ex: object
+            Instance of sacred.Experiment()
+
+        config_grid: dict
+            Dictionary of parameters of the experiment.
+
+        niter: int, default=10
+            Number of iterations of each experiment
+
+        dirname: str, default='my_runs'
+            Location of the directory where the experiments outputs are stored.
+    """
     ex.observers.append(FileStorageObserver('results/' + dirname))
     param_grid = list(ParameterGrid(config_grid))
     for i in range(niter):
@@ -14,14 +30,19 @@ def gridsearch(ex, config_grid, niter=10, dirname='my_runs'):
 
 
 def load_json(path):
+    """Loads a json object
+    Parameters
+    ----------
+    path: str
+        Location of the json file.
+    """
     with open(path) as file:
         return json.load(file)
 
 
 def extract_config(loc):
-    """ Extracts the metrics from the directory. """
+    """ Extracts the metrics from the directory."""
     config = load_json(loc + '/config.json')
-
     return config
 
 
@@ -36,6 +57,18 @@ def extract_metrics(loc):
 
 
 def get_ex_results(dirname):
+    """Extract all result of a configuration grid.
+
+    Parameters
+    ----------
+    dirname: str
+        Name of the directory where the experiments are stored.
+
+    Returns
+    -------
+    df: pandas DataFrame
+        Dataframe with all the experiments results
+    """
     not_in = ['_sources', '.DS_Store']
     dir_path = os.path.dirname(os.path.realpath(__file__))
     dirname = dir_path + '/' + dirname
@@ -65,13 +98,11 @@ def get_ex_results(dirname):
     df = pd.concat(frames, axis=0, sort=True)
     df.sort_index(inplace=True)
 
-    # Make numeric cols when possible
-    #df = df.apply(lambda x: pd.to_numeric(x, errors='ignore'), axis=1)
-
     return df
 
+
 def move_legend(ax, new_loc, **kws):
-    # Solves problem when moving legends with seaborn and histplot
+    """Solves problem when moving legends with seaborn and histplot"""
     old_legend = ax.legend_
     handles = old_legend.legendHandles
     labels = [t.get_text() for t in old_legend.get_texts()]

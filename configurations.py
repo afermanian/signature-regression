@@ -3,7 +3,7 @@ configs = {
     'estimator_convergence':
         {'d': [2],
          'regressor': ['signature'],
-         'X_type': ['independent'],
+         'X_type': ['smooth_independent'],
          'Y_type': ['sig'],
          'ntrain': [10, 50, 100, 500],
          'Kpen': [20]
@@ -12,21 +12,21 @@ configs = {
     'test':
         {'d': [3],
          'regressor': ['signature', 'fPCA', 'bspline', 'fourier'],
-         'X_type': ['independent'],
+         'X_type': ['smooth_independent'],
          'Y_type': ['mean']
          },
 
     'dim_study':
         {'d': [1, 3, 5, 7, 9, 11],
          'regressor': ['signature', 'fPCA', 'bspline', 'fourier'],
-         'X_type': ['dependent', 'independent'],
+         'X_type': ['smooth_dependent', 'smooth_independent'],
          'Y_type': ['max', 'mean']
          },
 
     'dim_study_gp':
         {'d': [1, 3, 5, 7, 9, 11],
          'regressor': ['signature', 'fPCA', 'bspline', 'fourier'],
-         'X_type': ['gp_independent'],
+         'X_type': ['gp'],
          },
 
     'weather_estimation':

@@ -1,11 +1,11 @@
-from sacred import Experiment
-import numpy as np
-from train import SignatureRegression, BasisRegression, select_nbasis_cv, select_hatm_cv, SignatureOrderSelection
 from configurations import configs
-from utils import gridsearch
-from tools import add_time
 from get_data import get_train_test_data
+import numpy as np
+from sacred import Experiment
 import sys
+from tools import add_time
+from train import SignatureRegression, BasisRegression, select_nbasis_cv, select_hatm_cv, SignatureOrderSelection
+from utils import gridsearch
 
 
 ex = Experiment()
@@ -15,7 +15,6 @@ def my_config():
     regressor = 'signature'
     d = None
     npoints = 100
-    noise_X_std = 0
     ntrain = 100
     nval = 100
     selection_method = 'cv'
@@ -27,12 +26,45 @@ def my_config():
     Kpen = None
 
 @ex.main
-def my_main(_run, d, npoints, noise_X_std, ntrain, nval, regressor, selection_method, Kpen, X_type, Y_type, nclients,
-            scaling, scale_X):
+def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X_type, Y_type, nclients, scaling, scale_X):
+    """Function that runs one experiment defined in configurations.py.
+
+    Parameters
+    ----------
+        _run: int
+            Run ID
+        d: int
+            Dimension of the space of the functional covariates X, from which an output Y is learned.
+        npoints: int
+            Number of sampling points of the data.
+        ntrain: int
+            Number of training samples.
+        nval: int
+            Number of validation samples.
+        regressor: str
+            Type of regression model. Possible values are 'signature', 'bspline', 'fourier', and 'fPCA'
+        selection_method: str
+            If regressor is 'signature', the type of method to select hatm. Possible values are 'cv' (selection by cross
+            validation) and 'estimation' (selection with the estimator hatm)
+        Kpen: float
+            Value of the penalization constant if regressor is 'signature' and 'selection_method' is 'estimation'.
+        X_type: str
+            Type of functional covariates. Possible values are 'smooth_dependent', 'smooth_independent' (for the smooth
+            curves with independent or dependent coordinates), 'gaussian_processes', 'weather' (for the Canadian Weather
+            dataset) and 'electricity_loads' (for the Electricity Loads dataset).
+        Y_type: str
+            Type of response, used only if X_type is 'smooth_dependent' or 'smooth_independent'. Possible values are
+            'mean', 'max', or 'sig'.
+        scaling: boolean
+             Whether to scale the predictor matrix, after having computed the signature or the basis expansion, to have
+             zero mean and unit variance.
+        scale_X: boolean
+            Whether to scale the different coordinates of X to have zero mean and unit variance. This is useful if the
+            orders of magnitude of the coordinates of X are very different one from another.
+    """
     try:
         Xtrain, Ytrain, Xval, Yval = get_train_test_data(X_type, ntrain=ntrain, nval=nval,  Y_type=Y_type,
-                                                         npoints=npoints, d=d, noise_X_std=noise_X_std,
-                                                         nclients=nclients, scale_X=scale_X)
+                                                         npoints=npoints, d=d, scale_X=scale_X)
         if regressor == 'signature':
             Xtimetrain = add_time(Xtrain)
             Xtimeval = add_time(Xval)
