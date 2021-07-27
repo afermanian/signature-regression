@@ -31,7 +31,7 @@ The main arguments in a configuration are:
 * regressor: regression model. Possible values are 'signature', 'bsplines', 'fourier', and 'fPCA'.
 * selection_method: only used if regressor='signature', type of selection method of the truncation parameter. Possible values are 'cv' (selection by cross-validation) and 'estimation' (selection with the estimator defined in the paper)
 * Kpen: only used if regressor='signature' and 'selection_method='estimation', value of the constant in the estimator of the truncation parameter. If it is None, then the slope heuristics method is used and the user has to manually enter it during the run.
-* X_type: type of functional covariates. Possible values are 'smooth' (for the smooth sinus curves), 'gp', 'air_quality' (for the Air Quality dataset).
+* X_type: type of functional covariates. Possible values are 'smooth' (for the smooth sinus curves), 'gp' (for the Gaussian processes), and 'air_quality' (for the Air Quality dataset).
 * Y_type: type of response, only used if X is simulated. Possible values are 'mean' and 'sig' (see the paper for more details)
 * d: dimension of the functional covariates X (if simulated)
 * npoints: number of sampling points of the functional covariates X (default npoints=100)
