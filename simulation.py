@@ -34,21 +34,14 @@ class DataGenerator(object):
 		if seed:
 			np.random.seed(seed)
 
-	def get_X_polysinus(self, n, X_type):
+	def get_X_polysinus(self, n):
 		""" Generates n sample paths X:[0,1] -> R^d, defined by
-		X_t=alpha_1 + 10*alpha_2*sinus(2*pi*t/alpha_3) + 10*(t-alpha_4)^3. If X_type is 'smooth_independent', the
-		alphas are sampled uniformly over [0,1]. If 'X_type' is independent, the alphas of each sample are correlated
-		across coordinates.
+		X_t=alpha_1 + 10*alpha_2*sinus(2*pi*t/alpha_3) + 10*(t-alpha_4)^3. The alphas are sampled uniformly over [0,1].
 
 		Parameters
 		----------
 		n: int
 			Number of samples.
-
-		X_type: str
-			Type of functional covariates. Possible values are 'smooth_dependent', 'smooth_independent' (for the smooth
-			curves with independent or dependent coordinates), 'gaussian_processes', 'weather' (for the Canadian Weather
-			dataset) and 'electricity_loads' (for the Electricity Loads dataset).
 
 		Returns
 		-------
@@ -60,13 +53,8 @@ class DataGenerator(object):
 
 		times = np.linspace(0, 1, num=self.npoints)
 		for i in range(n):
-			if X_type == 'smooth_dependent':
-				sinus_param = np.random.random(size=4)
 			for j in range(self.d):
-				if X_type == 'smooth_dependent':
-					param = np.random.random() * sinus_param
-				else:
-					param = np.random.random(size=4)
+				param = np.random.random(size=4)
 				X[i, :, j] = param[0] + 10 * param[1] * np.sin(
 					times * np.pi * 2 / param[2]) + 10 * (times - param[3]) ** 3
 		return X
@@ -145,7 +133,7 @@ class DataGenerator(object):
 			plt.show()
 		return Y + noise
 
-	def get_XY_polysinus(self, n, X_type='smooth_independent', Y_type='mean', mast=5):
+	def get_XY_polysinus(self, n, Y_type='mean', mast=5):
 		""" Generates n samples (X, Y) where X are smooth curves with independent or dependent coordinate, and Y is
 	either the mean or the max at the next time step.
 
@@ -158,7 +146,7 @@ class DataGenerator(object):
 			Type of functional covariates. Possible values are 'smooth_dependent', 'smooth_independent'.
 
 		Y_type: str, default='mean'
-			Type of response. Possible values are 'mean', 'max', or 'sig'.
+			Type of response. Possible values are 'mean' or 'sig'.
 
 		mast: int
 			True value of the truncation order of the signature. Used only if Y_type='sig'
@@ -172,12 +160,10 @@ class DataGenerator(object):
 		Y: array, shape (n)
 			Target values
 		"""
-		Xraw = self.get_X_polysinus(n, X_type)
+		Xraw = self.get_X_polysinus(n)
 
 		if Y_type == 'mean':
 			Y = np.mean(Xraw[:, -1, :], axis=1)
-		elif Y_type == 'max':
-			Y = np.max(Xraw[:, -1, :], axis=1)
 		elif Y_type == 'sig':
 			Y = self.get_Y_sig(Xraw[:, :-1, :], mast, noise_std=10)
 		else:

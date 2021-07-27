@@ -24,15 +24,17 @@ def my_config():
     scaling = True
     scale_X = False
     Kpen = None
+    univariate = False
 
 @ex.main
-def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X_type, Y_type, nclients, scaling, scale_X):
+def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X_type, Y_type, scaling, scale_X,
+            univariate):
     """Function that runs one experiment defined in configurations.py.
 
     Parameters
     ----------
-        _run: int
-            Run ID
+        _run: object
+            Run sacred object
         d: int
             Dimension of the space of the functional covariates X, from which an output Y is learned.
         npoints: int
@@ -49,12 +51,9 @@ def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X
         Kpen: float
             Value of the penalization constant if regressor is 'signature' and 'selection_method' is 'estimation'.
         X_type: str
-            Type of functional covariates. Possible values are 'smooth_dependent', 'smooth_independent' (for the smooth
-            curves with independent or dependent coordinates), 'gaussian_processes', 'weather' (for the Canadian Weather
-            dataset) and 'electricity_loads' (for the Electricity Loads dataset).
+            Type of functional covariates. Possible values are 'smooth', 'gp', and 'air_quality'.
         Y_type: str
-            Type of response, used only if X_type is 'smooth_dependent' or 'smooth_independent'. Possible values are
-            'mean', 'max', or 'sig'.
+            Type of response, used only if X_type is 'smooth'. Possible values are 'mean' and 'sig'.
         scaling: boolean
              Whether to scale the predictor matrix, after having computed the signature or the basis expansion, to have
              zero mean and unit variance.
@@ -63,18 +62,19 @@ def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X
             orders of magnitude of the coordinates of X are very different one from another.
     """
     try:
+        print("Get data")
         Xtrain, Ytrain, Xval, Yval = get_train_test_data(X_type, ntrain=ntrain, nval=nval,  Y_type=Y_type,
-                                                         npoints=npoints, d=d, scale_X=scale_X)
+                                                         npoints=npoints, d=d, scale_X=scale_X, univariate=univariate)
+        print(Xtrain.shape)
         if regressor == 'signature':
             Xtimetrain = add_time(Xtrain)
             Xtimeval = add_time(Xval)
 
             if selection_method == 'cv':
-                print(Xtimetrain.shape)
                 hatm = select_hatm_cv(Xtimetrain, Ytrain, scaling=scaling)
             elif selection_method == 'estimation':
                 order_sel = SignatureOrderSelection(Xtimetrain.shape[2], Kpen=Kpen)
-                hatm = order_sel.get_hatm(Xtimetrain, Ytrain, Kpen_values=np.linspace(10 ** (-5), 10 ** (-1), num=200))
+                hatm = order_sel.get_hatm(Xtimetrain, Ytrain, Kpen_values=10 ** np.linspace(-3, 1, num=200))
             else:
                 raise NameError('selection_method not well specified')
 
@@ -83,6 +83,7 @@ def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X
             sig_reg.fit(Xtimetrain, Ytrain)
 
             _run.log_scalar("val.error", sig_reg.get_loss(Xtimeval, Yval))
+            _run.log_scalar("alpha", sig_reg.alpha)
             _run.log_scalar("training.error", sig_reg.get_loss(Xtimetrain, Ytrain))
 
         elif regressor in ['bspline', 'fourier', 'fPCA']:

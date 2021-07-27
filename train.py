@@ -1,6 +1,7 @@
 import iisignature as isig
 import math
 import matplotlib.pyplot as plt
+from matplotlib import rc
 import numpy as np
 import seaborn as sns
 from skfda.representation.basis import VectorValued, BSpline, Fourier
@@ -13,6 +14,8 @@ from sklearn.preprocessing import StandardScaler
 from tools import get_sigX
 
 sns.set()
+rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+rc('text', usetex=True)
 
 
 class SignatureRegression(object):
@@ -46,7 +49,7 @@ class SignatureRegression(object):
         if self.scaling:
             self.scaler = StandardScaler()
 
-    def fit(self, X, Y, alphas=np.linspace(10 ** (-6), 100, num=1000)):
+    def fit(self, X, Y, alphas=np.linspace(10 ** (-5), 100, num=100)):
         """Fit a signature ridge regression.
 
         Parameters
@@ -66,7 +69,6 @@ class SignatureRegression(object):
         reg: object
             Instance of sklearn.linear_model.Ridge
         """
-
         sigX = get_sigX(X, self.k)
         if self.scaling:
             self.scaler.fit(sigX)
@@ -160,7 +162,7 @@ class SignatureOrderSelection(object):
         Maximal value of signature truncation to keep the number of features below max_features.
 
     """
-    def __init__(self, d, rho=0.4, Kpen=None, alpha=None, max_features=10**4):
+    def __init__(self, d, rho=0.4, Kpen=None, alpha=None, max_features=10 ** 3):
         self.d = d
         self.rho = rho
         self.Kpen = Kpen
@@ -262,6 +264,7 @@ class SignatureOrderSelection(object):
             hatm[i] = np.argmin(loss + pen)
 
         # Plot
+        palette = sns.color_palette('colorblind')
         fig, ax = plt.subplots()
         jump = 1
         for i in range(self.max_k + 1):
@@ -270,13 +273,13 @@ class SignatureOrderSelection(object):
                 xmax = Kpen_values[hatm == i][-1]
                 ax.hlines(i, xmin, xmax, colors='b')
                 if i != 0:
-                    ax.vlines(xmax, i, i - jump, linestyles='dashed', colors='b')
+                    ax.vlines(xmax, i, i - jump, linestyles='dashed', colors=palette[0])
                 jump = 1
             else:
                 jump += 1
         ax.set(xlabel=r'$K_{pen}$', ylabel=r'$\hat{m}$')
         if savefig:
-            plt.savefig('Figures/kpen_selection.png', bbox_inches='tight')
+            plt.savefig('Figures/kpen_selection.pdf', bbox_inches='tight')
         plt.show()
 
         return hatm
@@ -327,11 +330,13 @@ class SignatureOrderSelection(object):
         hatm = np.argmin(objective)
 
         if plot:
-            plt.plot(np.arange(self.max_k + 1), loss, label="loss")
-            plt.plot(np.arange(self.max_k + 1), pen, label="penalization")
-            plt.plot(np.arange(self.max_k + 1), objective, label="sum")
+            palette = sns.color_palette('colorblind')
+            plt.plot(np.arange(self.max_k + 1), loss, label=r"$\widehat{L}_n(m)$", color=palette[0])
+            plt.plot(np.arange(self.max_k + 1), pen, label=r"$pen_n(m)$", color=palette[1], linestyle='dashed')
+            plt.plot(np.arange(self.max_k + 1), objective, label=r"$\widehat{L}_n(m) + pen_n(m)$",
+                     color=palette[2], linestyle='dotted')
             plt.legend()
-            plt.show()
+            plt.xlabel(r'$m$')
         return hatm
 
 

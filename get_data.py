@@ -2,82 +2,61 @@ from definitions import *
 import numpy as np
 import pandas as pd
 from simulation import DataGenerator
-import skfda
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+import os
 
 
-def get_weather():
-	"""Fetch the Canadian Weather dataset from the skfda package. The input curves are the temperature curves, while the
-	output Y is the log of the total precipitations.
+def get_air_quality(univariate=False):
+	data = pd.read_csv(os.path.join(DATA_DIR, 'UCI', 'AirQualityUCI', 'AirQualityUCI.csv'), sep=';', header=0)
 
-	Returns
-	-------
-	X: array, shape (n,n_points,d)
-	Array of training paths. It is a 3-dimensional array, containing the coordinates in R^d of n piecewise linear
-	paths, each composed of n_points.
+	# Data cleaning
+	data = data.dropna(how='all')
+	data[['T', 'RH', 'AH', 'CO(GT)']] = data[['T', 'RH', 'AH', 'CO(GT)']].apply(lambda x: x.str.replace(',', '.'))
+	data['Hour'] = data['Time'].str.split('.', expand=True)[0]
+	data['DateHour'] = data['Date'] + '/' + data['Hour']
+	date_time_index = pd.to_datetime(data['DateHour'], format='%d/%m/%Y/%H')
+	data.index = date_time_index
 
-	Y: array, shape (n)
-		Array of target values.
-	"""
-	data = skfda.datasets.fetch_weather()
-	fd = data['data']
+	data = data[
+		['PT08.S1(CO)', 'PT08.S2(NMHC)', 'PT08.S3(NOx)', 'PT08.S4(NO2)', 'PT08.S5(O3)', 'T', 'RH', 'AH', 'NO2(GT)']]
+	data = data.astype(float)
+	data = data.replace(to_replace=-200, value=None)
+	data = data.fillna(method='ffill')
 
-	# Split dataset, temperatures and curves of precipitation
-	X, Y_func = fd.coordinates
-	Y = np.log10(Y_func.data_matrix.sum(axis=1)[:, 0])
-	return X.data_matrix, Y
+	if univariate:
+		keep_cols = ['PT08.S4(NO2)']
+	else:
+		keep_cols = ['PT08.S4(NO2)', 'T', 'RH']
 
+	list_X = []
+	list_Y = []
 
-def get_electricity_loads(nclients=10):
-	"""Fetch the Electricity Loads dataset, which should be stored in the DATA_DIR directory. The matrix X corresponds
-	to the electricity consumption of nclients over a week, the output Y is the maximal consumption of the next week
-	summed over all clients.
+	window_length = 24 * 7 + 1
+	for window in data.rolling(window=window_length):
+		if len(window) == window_length:
+			list_X.append(window[keep_cols][:-1].to_numpy())
+			list_Y.append(window['NO2(GT)'][-1])
 
-	Returns
-	-------
-	X: array, shape (n,n_points,d)
-	Array of training paths. It is a 3-dimensional array, containing the coordinates in R^d of n piecewise linear
-	paths, each composed of n_points.
-
-	Y: array, shape (n)
-		Array of target values.
-	"""
-	data = pd.read_pickle(DATA_DIR + '/UCI/df_hourly_electricity_loads.pkl')
-
-	rng = np.random.RandomState(2)
-	keep_cols = rng.choice(data.shape[1], nclients)
-
-	all_dates = pd.date_range(start='2012-01-01', end='2014-12-31', freq='7D')
-
-	X = np.zeros((len(all_dates) - 2, data[all_dates[0]:all_dates[1]].shape[0] - 1, nclients))
-	Y = np.zeros(len(all_dates) - 2)
-
-	for i in range(len(all_dates) - 2):
-		X[i, :, :] = data[all_dates[i]:all_dates[i + 1]].iloc[:-1, keep_cols].to_numpy()
-
-		# Sum all consumption and take the maximum for the following day
-		Y[i] = data[all_dates[i + 1]:all_dates[i + 2]].iloc[:-1, :].sum(axis=1).max()
-
-	return X, Y / 10 ** 5
+	X = np.stack(list_X)
+	Y = np.stack(list_Y)
+	return X, Y / 100
 
 
-def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=None, d=None, seed=None, scale_X=True):
+def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=None, d=None, seed=None, scale_X=True,
+						univariate=False):
 	"""Returns the train/test splits of the various types of data used in all experiments
 
 	Parameters
 	----------
 	X_type: str
-		Type of functional covariates. Possible values are 'smooth_dependent', 'smooth_independent' (for the smooth
-		curves with independent or dependent coordinates), 'gaussian_processes', 'weather' (for the Canadian Weather
-		dataset) and 'electricity_loads' (for the Electricity Loads dataset).
+		Type of functional covariates. Possible values are 'smooth', 'gp', and 'air_quality'.
 	ntrain: int
 		Number of training samples.
 	nval: int
 		Number of validation samples.
 	Y_type: str
-		Type of response, used only if X_type is 'smooth_dependent' or 'smooth_independent'. Possible values are
-		'mean', 'max', or 'sig'.
+		Type of response, used only if X_type is 'smooth'. Possible values are 'mean' and 'sig'.
 	npoints: int
 		Number of sampling points of the data.
 	d: int
@@ -104,23 +83,22 @@ def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=Non
 	Yval: array, shape (nval)
 		Array of target values for the validation data.
 	"""
-	if X_type in ['smooth_dependent', 'smooth_independent']:
+	if X_type == 'smooth':
 		sim = DataGenerator(npoints + 1, d, seed=seed)
-		Xtrain, Ytrain = sim.get_XY_polysinus(ntrain, X_type=X_type, Y_type=Y_type)
-		Xval, Yval = sim.get_XY_polysinus(nval, X_type=X_type, Y_type=Y_type)
+		Xtrain, Ytrain = sim.get_XY_polysinus(ntrain, Y_type=Y_type)
+		Xval, Yval = sim.get_XY_polysinus(nval, Y_type=Y_type)
 
 	elif X_type == 'gp':
 		sim = DataGenerator(npoints, d)
 		Xtrain, Ytrain = sim.get_XY_gaussian_process(ntrain)
 		Xval, Yval = sim.get_XY_gaussian_process(nval)
 
-	elif X_type == 'weather':
-		X, Y = get_weather()
+	elif X_type == 'air_quality':
+		X, Y = get_air_quality(univariate=univariate)
 		Xtrain, Xval, Ytrain, Yval = train_test_split(X, Y, test_size=0.33)
 
-	elif X_type == 'electricity_loads':
-		X, Y = get_electricity_loads(nclients=d)
-		Xtrain, Xval, Ytrain, Yval = train_test_split(X, Y, test_size=0.33)
+	else:
+		raise NameError('X_type not well specified')
 
 	if scale_X:
 		# Scale all coordinates of X
