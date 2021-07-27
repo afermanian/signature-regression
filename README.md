@@ -8,23 +8,35 @@ We propose a novel methodology for regressing a real output on vector-valued fun
 
 ## The code
 
-All the code to fit a linear regression on signature features is in `main.py`. Given data matrices Y of size n and X of size n x p x d, the following lines of code will give you the estimator of the truncation order and a vector of regression coefficients:
+The code is based on the [sacred](https://sacred.readthedocs.io/en/stable/) framework. To run an experiment, you need to specify a configuration in `configurations.py` and then run the script `main.py` with arguments the name of the configuration and the number of iterations. For example, if you want to do one run of a linear regression on signatures, with a constant `Kpen=1`, on simulated sinus data of dimension 2, you can use the configuration
 
 ```python
-from main import orderEstimator
-
-est=orderEstimator(d)
-hatm=est.get_hatm(Y,X,M,Kpen=Kpen,alpha=alpha)[0]
-reg,Ypred=est.fit_ridge(Y,X,hatm,alpha=alpha,norm_path=False)
+'my_test':
+    {'d': [2],
+     'regressor': ['signature'],
+     'X_type': ['smooth_independent'],
+     'Y_type': ['mean'],
+     'Kpen': [1.]
+     }
 ```
 
-where alpha is the regularization parameter, Kpen is the constant in the penalization of the truncation order estimator and M is the range of truncation orders considered. If you wish to calibrate Kpen with the slope heuristics method, the command
+and then run
 
-```python
-K_values=np.linspace(10**(-7),10**1,num=200)
-est.slope_heuristic(K_values,X,Y,max_k,alpha)
 ```
-will output a plot of the estimator as a function of the constant. Then, you can choose the best constant by looking at the biggest jump and picking twice the x-value corresponding to this jump. 
+python main.py my_test 1
+```
+The results of each experiment are stored in the `results` directory. They can be loaded in a dataframe with the function `get_ex_results` from `utils.py`. This is illustrated in the notebook `Analyse results.ipynb`.
+
+The main arguments in a configuration are:
+* regressor: regression model. Possible values are 'signature', 'bsplines', 'fourier', and 'fPCA'.
+* selection_method: only used if regressor='signature', type of selection method of the truncation parameter. Possible values are 'cv' (selection by cross-validation) and 'estimation' (selection with the estimator detailed in the paper)
+* Kpen: only used if regressor='signature' and 'selection_method='estimation', value of the constant in the estimator of the truncation parameter. If it is None, then the slope heuristics method is used and the user has to manually enter it during the run.
+* X_type: type of functional covariates. Possible values are 'smooth_dependent', 'smooth_independent' (for the smooth sinus curves), 'gaussian_processes', 'weather (for the Canadian Weather dataset) and 'electricity_loads' (for the Electricity Loads dataset).
+* Y_type: type of response, only used if X is simulated. Possible values are 'mean', 'max' and 'sig' (see the paper for more details)
+* d: dimension of the functional covariates X (if simulated)
+* npoints: number of sampling points of the functional covariates X (default npoints=100)
+* ntrain: number of training samples (default ntrain=100)
+* nval: number of validation samples (default nval=100)
 
 ## Reproducing the experiments
 
@@ -37,18 +49,23 @@ All the necessary packages may be set up by running
 
 ### Data
 
-First create a directory in the root directory `data/`. Then download the Canadian Weather and UCR & UEA datasets from the following sources:
+Download the Electricity Loads dataset from https://archive.ics.uci.edu/ml/datasets/ElectricityLoadDiagrams20112014# and place the data at the location `data/UCI/LD2011_2014.txt`. Run
+`python preprocessing.py`
+to preprocess the data. The Canadian Weather dataset does not need to be downloaded, it is included in the package `scikit-fda`.
 
-* The Canadian Weather dataset comes from the `fda` R package and can be downloaded by running in R the scrip `get_data/get_canadian_weather.R`
-* The UCR & UEA datasets may be downloaded at http://www.timeseriesclassification.com and should all be stored in `data/ucr/` as .arff files.
 
-### Running the scripts
+### Running the experiments
 
-There are 3 scripts that reproduce the various experiments of the paper.
+The configurations to reproduce the figures of the paper are in the file `configurations.py`. Then run
 
-* Run `python script_cvg_hatm_Y_sig.py` to get the results on simulated datasets. Beware that this script may take a while to run. Its results are stored in `results/`, together with the corresponding plots.
-* Run `python script_canadian_weather.py` to get the results on the Canadian Weather dataset. You will be asked to enter the constant of the penalization chosen by the slope heuristics method.
-* Run `python script_ucr.py <name>` where `<name>` should be the name of one of the UCR & UEA datasets to reproduce the results on these datasets.
+```
+python main.py estimator_convergence 20
+python main.py dim_study 20
+python main.py dim_study_gp 20
+python main.py weather_estimation 20
+python main.py electricity_loads 20
+```
+to obtain the respective experiments. The notebook `Analyse results.ipynb` gives the exact code to obtain the figures of the paper.
 
 ## Citation
 
