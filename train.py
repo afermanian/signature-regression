@@ -49,7 +49,7 @@ class SignatureRegression(object):
         if self.scaling:
             self.scaler = StandardScaler()
 
-    def fit(self, X, Y, alphas=np.linspace(10 ** (-5), 100, num=100)):
+    def fit(self, X, Y, alphas=np.linspace(10 ** (-5), 1000, num=100)):
         """Fit a signature ridge regression.
 
         Parameters
@@ -58,7 +58,7 @@ class SignatureRegression(object):
             Array of training paths. It is a 3-dimensional array, containing the coordinates in R^d of n piecewise
             linear paths, each composed of n_points.
 
-         Y: array, shape (n)
+        Y: array, shape (n)
             Array of target values.
 
         alphas: array, default=np.linspace(10 ** (-6), 100, num=1000)
@@ -70,9 +70,9 @@ class SignatureRegression(object):
             Instance of sklearn.linear_model.Ridge
         """
         sigX = get_sigX(X, self.k)
-        if self.scaling:
-            self.scaler.fit(sigX)
-            sigX = self.scaler.transform(sigX)
+        if self.scaling and self.k != 0:
+            self.scaler.fit(sigX[:, 1:])
+            sigX = self.scaler.transform(sigX[:, 1:])
 
         if self.alpha is not None:
             self.reg.alpha_ = self.alpha
@@ -100,8 +100,8 @@ class SignatureRegression(object):
         """
 
         sigX = get_sigX(X, self.k)
-        if self.scaling:
-            sigX = self.scaler.transform(sigX)
+        if self.scaling and self.k != 0:
+            sigX = self.scaler.transform(sigX[:, 1:])
         Ypred = self.reg.predict(sigX)
         return Ypred
 

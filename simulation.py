@@ -78,14 +78,15 @@ class DataGenerator(object):
 		times = times.reshape((self.npoints, n, self.d)).transpose((1, 0, 2))
 		slope = 3 * (2 * np.random.random((n, self.d)) - 1)
 
-		Y = np.sqrt(np.sum(slope ** 2, axis=1))
+		Y_no_noise = np.sqrt(np.sum(slope ** 2, axis=1))
 		slope = np.repeat(np.expand_dims(slope, 0), self.npoints, 0).transpose((1, 0, 2))
 		for i in range(n):
 			gp = make_gaussian_process(n_features=self.npoints, n_samples=self.d, cov=Exponential())
 			X[i, :, :] = gp.data_matrix.T[0]
 
 		X = X + slope * times
-
+		noise = 2 * self.noise_std * np.random.random(size=Y_no_noise.shape) - self.noise_std
+		Y = Y_no_noise + noise
 		return X, Y
 
 	def get_Y_sig(self, X, mast, noise_std=100, plot=False):
@@ -163,12 +164,13 @@ class DataGenerator(object):
 		Xraw = self.get_X_polysinus(n)
 
 		if Y_type == 'mean':
-			Y = np.mean(Xraw[:, -1, :], axis=1)
+			noise = 2 * self.noise_std * np.random.random(size=Xraw.shape[0]) - self.noise_std
+			Y_no_noise = np.mean(Xraw[:, -1, :], axis=1)
+			Y = Y_no_noise + noise
 		elif Y_type == 'sig':
 			Y = self.get_Y_sig(Xraw[:, :-1, :], mast, noise_std=10)
 		else:
 			raise NameError('Y_type not well specified')
 
 		X = Xraw[:, :-1, :]
-		noise = 2 * self.noise_std * np.random.random(size=X.shape) - self.noise_std
-		return X + noise, Y
+		return X, Y

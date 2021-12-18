@@ -3,11 +3,10 @@ import numpy as np
 import pandas as pd
 from simulation import DataGenerator
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 import os
 
 
-def get_air_quality(univariate=False):
+def get_air_quality(univariate_air_quality=False):
 	data = pd.read_csv(os.path.join(DATA_DIR, 'UCI', 'AirQualityUCI', 'AirQualityUCI.csv'), sep=';', header=0)
 
 	# Data cleaning
@@ -24,7 +23,7 @@ def get_air_quality(univariate=False):
 	data = data.replace(to_replace=-200, value=None)
 	data = data.fillna(method='ffill')
 
-	if univariate:
+	if univariate_air_quality:
 		keep_cols = ['PT08.S4(NO2)']
 	else:
 		keep_cols = ['PT08.S4(NO2)', 'T', 'RH']
@@ -43,8 +42,8 @@ def get_air_quality(univariate=False):
 	return X, Y / 100
 
 
-def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=None, d=None, seed=None, scale_X=True,
-						univariate=False):
+def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=None, d=None,
+						univariate_air_quality=False):
 	"""Returns the train/test splits of the various types of data used in all experiments
 
 	Parameters
@@ -63,9 +62,6 @@ def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=Non
 		Dimension of the space of the functional covariates X, from which an output Y is learned.
 	seed: int
 		Random seed for the generation of the smooth paths.
-	scale_X: boolean
-		Whether to scale the different coordinates of X to have zero mean and unit variance. This is useful if the
-		orders of magnitude of the coordinates of X are very different one from another.
 
 	Returns
 	-------
@@ -84,28 +80,21 @@ def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=Non
 		Array of target values for the validation data.
 	"""
 	if X_type == 'smooth':
-		sim = DataGenerator(npoints + 1, d, seed=seed)
+		sim = DataGenerator(npoints + 1, d, noise_std=1.)
 		Xtrain, Ytrain = sim.get_XY_polysinus(ntrain, Y_type=Y_type)
 		Xval, Yval = sim.get_XY_polysinus(nval, Y_type=Y_type)
 
 	elif X_type == 'gp':
-		sim = DataGenerator(npoints, d)
+		sim = DataGenerator(npoints, d, noise_std=1.)
 		Xtrain, Ytrain = sim.get_XY_gaussian_process(ntrain)
 		Xval, Yval = sim.get_XY_gaussian_process(nval)
 
 	elif X_type == 'air_quality':
-		X, Y = get_air_quality(univariate=univariate)
+		X, Y = get_air_quality(univariate_air_quality=univariate_air_quality)
 		Xtrain, Xval, Ytrain, Yval = train_test_split(X, Y, test_size=0.33)
 
 	else:
 		raise NameError('X_type not well specified')
 
-	if scale_X:
-		# Scale all coordinates of X
-		for i in range(Xtrain.shape[2]):
-			scaler = StandardScaler()
-			scaler.fit(Xtrain[:, :, i])
-			Xtrain[:, :, i] = scaler.transform(Xtrain[:, :, i])
-			Xval[:, :, i] = scaler.transform(Xval[:, :, i])
-
 	return Xtrain, Ytrain, Xval, Yval
+

@@ -7,6 +7,8 @@ from tools import add_time
 from train import SignatureRegression, BasisRegression, select_nbasis_cv, select_hatm_cv, SignatureOrderSelection
 from utils import gridsearch
 
+import warnings
+warnings.filterwarnings('ignore')
 
 ex = Experiment()
 
@@ -20,15 +22,12 @@ def my_config():
     selection_method = 'cv'
     X_type = 'weather'
     Y_type = None
-    nclients = None
-    scaling = True
-    scale_X = False
+    scaling = False
     Kpen = None
-    univariate = False
+    univariate_air_quality = False
 
 @ex.main
-def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X_type, Y_type, scaling, scale_X,
-            univariate):
+def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X_type, Y_type, scaling, univariate_air_quality):
     """Function that runs one experiment defined in configurations.py.
 
     Parameters
@@ -57,15 +56,12 @@ def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X
         scaling: boolean
              Whether to scale the predictor matrix, after having computed the signature or the basis expansion, to have
              zero mean and unit variance.
-        scale_X: boolean
-            Whether to scale the different coordinates of X to have zero mean and unit variance. This is useful if the
-            orders of magnitude of the coordinates of X are very different one from another.
     """
     try:
-        print("Get data")
         Xtrain, Ytrain, Xval, Yval = get_train_test_data(X_type, ntrain=ntrain, nval=nval,  Y_type=Y_type,
-                                                         npoints=npoints, d=d, scale_X=scale_X, univariate=univariate)
-        print(Xtrain.shape)
+                                                         npoints=npoints, d=d,
+                                                         univariate_air_quality=univariate_air_quality)
+        print(regressor, Xtrain.shape)
         if regressor == 'signature':
             Xtimetrain = add_time(Xtrain)
             Xtimeval = add_time(Xval)
