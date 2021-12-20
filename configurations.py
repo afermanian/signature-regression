@@ -12,7 +12,7 @@ configs = {
     'test':
         {'d': [3],
          'regressor': ['signature', 'fPCA', 'bspline', 'fourier'],
-         'X_type': ['smooth_independent'],
+         'X_type': ['smooth'],
          'Y_type': ['mean']
          },
 
