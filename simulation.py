@@ -143,9 +143,6 @@ class DataGenerator(object):
 		n: int
 			Number of samples.
 
-		X_type: str, default='smooth_independent'
-			Type of functional covariates. Possible values are 'smooth_dependent', 'smooth_independent'.
-
 		Y_type: str, default='mean'
 			Type of response. Possible values are 'mean' or 'sig'.
 

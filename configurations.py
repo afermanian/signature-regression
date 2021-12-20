@@ -7,7 +7,7 @@ configs = {
          'Y_type': ['sig'],
          'ntrain': [10, 50, 100, 500],
          'Kpen': [20]
-        },
+         },
 
     'test':
         {'d': [3],
@@ -37,4 +37,3 @@ configs = {
          'X_type': ['gp'],
          },
 }
-

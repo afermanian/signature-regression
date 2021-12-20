@@ -8,6 +8,23 @@ import os
 
 
 def get_air_quality(univariate_air_quality=False):
+	""" Returns the Air Quality data
+
+	Parameters
+	----------
+		univariate_air_quality: boolean
+		Type of functional covariates for the Air Quality dataset. If True, then only the NO2 curve is used, if False,
+		then the Temperature and Humidity are also used. Only used if X_type=='air_quality'.
+
+	Returns
+	-------
+		X: array, shape (n, n_points, d)
+			Array of training paths. It is a 3-dimensional array, containing the coordinates in R^d of n piecewise linear
+			paths, each composed of n_points. If univariate_air_quality is True, then d=1, otherwise d=3.
+
+		Y: array, shape (n)
+			Array of target values for the training data.
+	"""
 	data = pd.read_csv(os.path.join(DATA_DIR, 'UCI', 'AirQualityUCI', 'AirQualityUCI.csv'), sep=';', header=0)
 
 	# Data cleaning
@@ -43,8 +60,9 @@ def get_air_quality(univariate_air_quality=False):
 	return X, Y / 100
 
 
-def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=None, d=None, scale_X=False,
-						univariate_air_quality=False, seed=None):
+def get_train_test_data(
+		X_type, ntrain=None, nval=None, Y_type=None, npoints=None, d=None, scale_X=False, univariate_air_quality=False,
+		seed=None):
 	"""Returns the train/test splits of the various types of data used in all experiments
 
 	Parameters
@@ -63,6 +81,13 @@ def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=Non
 		Dimension of the space of the functional covariates X, from which an output Y is learned.
 	seed: int
 		Random seed for the generation of the smooth paths.
+	scale_X: boolean
+		Whether to scale the different coordinates of X to have zero mean and unit variance. This is useful if the
+		orders of magnitude of the coordinates of X are very different one from another, typically for the Air Quality
+		dataset.
+	univariate_air_quality: boolean
+		Type of functional covariates for the Air Quality dataset. If True, then only the NO2 curve is used, if False,
+		then the Temperature and Humidity are also used. Only used if X_type=='air_quality'.
 
 	Returns
 	-------
@@ -106,4 +131,3 @@ def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=Non
 			Xval[:, :, i] = scaler.transform(Xval[:, :, i])
 
 	return Xtrain, Ytrain, Xval, Yval
-

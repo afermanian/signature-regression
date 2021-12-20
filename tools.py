@@ -3,7 +3,7 @@ import numpy as np
 
 
 def add_time(X):
-	"""Adds a dimension with time to each smaple in X
+	"""Adds a dimension with time to each sample in X
 
 	Parameters
 	----------
@@ -48,4 +48,3 @@ def get_sigX(X, k):
 		for i in range(np.shape(X)[0]):
 			sigX[i, 1:] = isig.sig(X[i, :, :], k)
 		return sigX
-

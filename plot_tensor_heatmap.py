@@ -58,8 +58,3 @@ def plot_tensor_heatmap(x, d, k, label=False, figsize=(20, 10), textsize=5):
 		else:
 			ax = sns.heatmap(mat_coef, mask=mask, xticklabels=False, center=0, cbar_kws={"orientation": "horizontal"})
 	return f, ax
-
-
-
-
-

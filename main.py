@@ -12,6 +12,7 @@ warnings.filterwarnings('ignore')
 
 ex = Experiment()
 
+
 @ex.config
 def my_config():
     regressor = 'signature'
@@ -22,12 +23,13 @@ def my_config():
     selection_method = 'cv'
     X_type = 'weather'
     Y_type = None
-    scaling = False
     Kpen = None
     univariate_air_quality = False
 
+
 @ex.main
-def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X_type, Y_type, scaling, univariate_air_quality):
+def my_main(
+        _run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X_type, Y_type, univariate_air_quality):
     """Function that runs one experiment defined in configurations.py.
 
     Parameters
@@ -53,9 +55,9 @@ def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X
             Type of functional covariates. Possible values are 'smooth', 'gp', and 'air_quality'.
         Y_type: str
             Type of response, used only if X_type is 'smooth'. Possible values are 'mean' and 'sig'.
-        scaling: boolean
-             Whether to scale the predictor matrix, after having computed the signature or the basis expansion, to have
-             zero mean and unit variance.
+        univariate_air_quality: boolean
+            Type of functional covariates for the Air Quality dataset. If True, then only the NO2 curve is used, if
+            False, then the Temperature and Humidity are also used. Only used if X_type=='air_quality'
     """
     try:
         Xtrain, Ytrain, Xval, Yval = get_train_test_data(X_type, ntrain=ntrain, nval=nval,  Y_type=Y_type,
@@ -67,7 +69,7 @@ def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X
             Xtimeval = add_time(Xval)
 
             if selection_method == 'cv':
-                hatm = select_hatm_cv(Xtimetrain, Ytrain, scaling=scaling)
+                hatm = select_hatm_cv(Xtimetrain, Ytrain)
             elif selection_method == 'estimation':
                 order_sel = SignatureOrderSelection(Xtimetrain.shape[2], Kpen=Kpen)
                 hatm = order_sel.get_hatm(Xtimetrain, Ytrain, Kpen_values=10 ** np.linspace(-3, 1, num=200))
@@ -75,7 +77,7 @@ def my_main(_run, d, npoints, ntrain, nval, regressor, selection_method, Kpen, X
                 raise NameError('selection_method not well specified')
 
             _run.log_scalar("hatm", hatm)
-            sig_reg = SignatureRegression(hatm, scaling=scaling)
+            sig_reg = SignatureRegression(hatm)
             sig_reg.fit(Xtimetrain, Ytrain)
 
             _run.log_scalar("val.error", sig_reg.get_loss(Xtimeval, Yval))
@@ -102,14 +104,3 @@ if __name__ == '__main__':
     dirname = str(sys.argv[1])
     niter = int(sys.argv[2])
     gridsearch(ex, config, dirname=dirname, niter=niter)
-
-
-
-
-
-
-
-
-
-
-

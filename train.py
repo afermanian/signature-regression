@@ -10,7 +10,6 @@ from skfda.ml.regression import LinearRegression
 from skfda.preprocessing.dim_reduction.projection import FPCA
 from sklearn.linear_model import RidgeCV, Ridge
 from sklearn.model_selection import KFold
-from sklearn.preprocessing import StandardScaler
 from tools import get_sigX
 
 sns.set()
@@ -26,9 +25,6 @@ class SignatureRegression(object):
     k: int
             Truncation order of the signature
 
-    scaling: boolean, default=True
-        Whether to scale the predictor matrix to have zero mean and unit variance
-
     alpha: float, default=None
         Regularization parameter in the Ridge regression
 
@@ -36,18 +32,12 @@ class SignatureRegression(object):
     ----------
     reg: object
         Instance of sklearn.linear_model.Ridge
-
-    scaler: object
-        Instance of sklearn.preprocessing.StandardScaler
     """
 
-    def __init__(self, k, scaling=False, alpha=None):
-        self.scaling = scaling
+    def __init__(self, k, alpha=None):
         self.reg = Ridge(normalize=False, fit_intercept=False, solver='svd')
         self.k = k
         self.alpha = alpha
-        if self.scaling:
-            self.scaler = StandardScaler()
 
     def fit(self, X, Y, alphas=np.linspace(10 ** (-5), 1000, num=100)):
         """Fit a signature ridge regression.
@@ -70,9 +60,6 @@ class SignatureRegression(object):
             Instance of sklearn.linear_model.Ridge
         """
         sigX = get_sigX(X, self.k)
-        if self.scaling and self.k != 0:
-            self.scaler.fit(sigX[:, 1:])
-            sigX = self.scaler.transform(sigX[:, 1:])
 
         if self.alpha is not None:
             self.reg.alpha_ = self.alpha
@@ -100,8 +87,6 @@ class SignatureRegression(object):
         """
 
         sigX = get_sigX(X, self.k)
-        if self.scaling and self.k != 0:
-            sigX = self.scaler.transform(sigX[:, 1:])
         Ypred = self.reg.predict(sigX)
         return Ypred
 
@@ -285,7 +270,7 @@ class SignatureOrderSelection(object):
         return hatm
 
     def get_hatm(self, X, Y, Kpen_values=np.linspace(10 ** (-5), 10 ** 2, num=200), plot=False, savefig=False):
-        """Computes the estimator of the truncation order by minimizing the sumof hatL and the penalization, over
+        """Computes the estimator of the truncation order by minimizing the sum of hatL and the penalization, over
         values of k from 1 to max_k.
 
         Parameters
@@ -367,7 +352,7 @@ class BasisRegression(object):
         self.reg = LinearRegression()
         self.basis_type = basis_type
         self.coef = None
-        if self.basis_type=='fPCA':
+        if self.basis_type == 'fPCA':
             self.fpca_basis = FPCA(self.nbasis)
 
     def data_to_basis(self, X, fit_fPCA=True):
@@ -515,7 +500,7 @@ def select_nbasis_cv(X, Y, basis_type):
     return nbasis_grid[np.argmin(score)]
 
 
-def select_hatm_cv(X, Y, max_k=None, scaling=False, plot=False):
+def select_hatm_cv(X, Y, max_k=None, plot=False):
     """Select the optimal value of hatm for the signature linear model implemented in the class SignatureRegression by
     cross validation.
 
@@ -530,9 +515,6 @@ def select_hatm_cv(X, Y, max_k=None, scaling=False, plot=False):
 
     max_k: int,
         Maximal value of signature truncation to keep the number of features below max_features.
-
-    scaling: boolean, default=False
-        Whether to scale the predictor matrix to have zero mean and unit variance
 
     plot: boolean, default=False
         If true, plot the cross validation loss as a function of the truncation order.
@@ -551,7 +533,7 @@ def select_hatm_cv(X, Y, max_k=None, scaling=False, plot=False):
         kf = KFold(n_splits=5)
         score_i = []
         for train, test in kf.split(X):
-            reg = SignatureRegression(k, scaling=scaling)
+            reg = SignatureRegression(k)
             reg.fit(X[train], Y[train])
             score_i += [reg.get_loss(X[test], Y[test])]
         score += [np.mean(score_i)]
