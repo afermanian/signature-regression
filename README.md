@@ -1,4 +1,4 @@
-# Linear functional regression with truncated signatures ([preprint](https://arxiv.org/abs/2006.08442))
+# Functional linear regression with truncated signatures ([preprint](https://arxiv.org/abs/2006.08442))
 
 We propose a novel methodology for regressing a real output on vector-valued functional covariates. This methodology is based on the notion of signature, which is a representation of a function as an infinite series of its iterated integrals. The signature depends crucially on a truncation parameter for which an estimator is provided, together with theoretical guarantees. We provide here the code to compute an estimator of the truncation parameter, which is then used to implement a linear regression with signature features. The procedure is summarised below:
 
@@ -14,7 +14,7 @@ The code is based on the [sacred](https://sacred.readthedocs.io/en/stable/) fram
 'my_test':
     {'d': [2],
      'regressor': ['signature'],
-     'X_type': ['smooth_independent'],
+     'X_type': ['smooth'],
      'Y_type': ['mean'],
      'Kpen': [1.]
      }
@@ -29,10 +29,10 @@ The results of each experiment are stored in the `results` directory. They can b
 
 The main arguments in a configuration are:
 * regressor: regression model. Possible values are 'signature', 'bsplines', 'fourier', and 'fPCA'.
-* selection_method: only used if regressor='signature', type of selection method of the truncation parameter. Possible values are 'cv' (selection by cross-validation) and 'estimation' (selection with the estimator detailed in the paper)
+* selection_method: only used if regressor='signature', type of selection method of the truncation parameter. Possible values are 'cv' (selection by cross-validation) and 'estimation' (selection with the estimator defined in the paper)
 * Kpen: only used if regressor='signature' and 'selection_method='estimation', value of the constant in the estimator of the truncation parameter. If it is None, then the slope heuristics method is used and the user has to manually enter it during the run.
-* X_type: type of functional covariates. Possible values are 'smooth_dependent', 'smooth_independent' (for the smooth sinus curves), 'gaussian_processes', 'weather (for the Canadian Weather dataset) and 'electricity_loads' (for the Electricity Loads dataset).
-* Y_type: type of response, only used if X is simulated. Possible values are 'mean', 'max' and 'sig' (see the paper for more details)
+* X_type: type of functional covariates. Possible values are 'smooth' (for the smooth sinus curves), 'gp' (for the Gaussian processes), and 'air_quality' (for the Air Quality dataset).
+* Y_type: type of response, only used if X is simulated. Possible values are 'mean' and 'sig' (see the paper for more details)
 * d: dimension of the functional covariates X (if simulated)
 * npoints: number of sampling points of the functional covariates X (default npoints=100)
 * ntrain: number of training samples (default ntrain=100)
@@ -49,10 +49,7 @@ All the necessary packages may be set up by running
 
 ### Data
 
-Download the Electricity Loads dataset from https://archive.ics.uci.edu/ml/datasets/ElectricityLoadDiagrams20112014# and place the data at the location `data/UCI/LD2011_2014.txt`. Run
-`python preprocessing.py`
-to preprocess the data. The Canadian Weather dataset does not need to be downloaded, it is included in the package `scikit-fda`.
-
+Download the Air Quality dataset from https://archive.ics.uci.edu/ml/datasets/Air+Quality and place the data at the location `data/UCI/AirQualityUCI/AirQualityUCI.csv`.
 
 ### Running the experiments
 
@@ -62,10 +59,9 @@ The configurations to reproduce the figures of the paper are in the file `config
 python main.py estimator_convergence 20
 python main.py dim_study 20
 python main.py dim_study_gp 20
-python main.py weather_estimation 20
-python main.py electricity_loads 20
+python main.py air_quality 20
 ```
-to obtain the respective experiments. The notebook `Analyse results.ipynb` gives the exact code to obtain the figures of the paper.
+to obtain the respective experiments. Once the experiments are run, the notebook `Analyse results.ipynb` gives the exact code to obtain the figures of the paper.
 
 ## Citation
 
