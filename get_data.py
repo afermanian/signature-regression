@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from simulation import DataGenerator
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 import os
 
 
@@ -42,8 +43,8 @@ def get_air_quality(univariate_air_quality=False):
 	return X, Y / 100
 
 
-def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=None, d=None,
-						univariate_air_quality=False):
+def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=None, d=None, scale_X=False,
+						univariate_air_quality=False, seed=None):
 	"""Returns the train/test splits of the various types of data used in all experiments
 
 	Parameters
@@ -80,7 +81,7 @@ def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=Non
 		Array of target values for the validation data.
 	"""
 	if X_type == 'smooth':
-		sim = DataGenerator(npoints + 1, d, noise_std=1.)
+		sim = DataGenerator(npoints + 1, d, noise_std=1., seed=seed)
 		Xtrain, Ytrain = sim.get_XY_polysinus(ntrain, Y_type=Y_type)
 		Xval, Yval = sim.get_XY_polysinus(nval, Y_type=Y_type)
 
@@ -95,6 +96,14 @@ def get_train_test_data(X_type, ntrain=None, nval=None, Y_type=None, npoints=Non
 
 	else:
 		raise NameError('X_type not well specified')
+
+	if scale_X:
+		# Scale all coordinates of X (for plotting mainly)
+		for i in range(Xtrain.shape[2]):
+			scaler = StandardScaler()
+			scaler.fit(Xtrain[:, :, i])
+			Xtrain[:, :, i] = scaler.transform(Xtrain[:, :, i])
+			Xval[:, :, i] = scaler.transform(Xval[:, :, i])
 
 	return Xtrain, Ytrain, Xval, Yval
 

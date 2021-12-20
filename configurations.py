@@ -21,7 +21,7 @@ configs = {
          'X_type': ['air_quality'],
          'selection_method': ['estimation'],
          'Kpen': [10 ** (-2)],
-         'univariate': [True, False]
+         'univariate_air_quality': [True, False]
          },
 
     'dim_study':

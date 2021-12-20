@@ -51,7 +51,6 @@ def plot_tensor_heatmap(x, d, k, label=False, figsize=(20, 10), textsize=5):
 	with sns.axes_style("white"):
 		f, ax = plt.subplots(figsize=figsize)
 		if label:
-			print("there is a label")
 			ax = sns.heatmap(
 				mat_coef, mask=mask, xticklabels=False, center=0,
 				cbar_kws={"orientation": "horizontal"}, annot=annot, fmt='',
