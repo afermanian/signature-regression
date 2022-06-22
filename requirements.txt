@@ -21,7 +21,7 @@ mpmath==1.2.1
 multimethod==1.5
 munch==2.5.0
 numba==0.53.1
-numpy==1.21.0
+numpy==1.22.0
 packaging==20.9
 pandas==1.2.5
 paramz==0.9.5
